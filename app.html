@@ -86,6 +86,9 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
 .pose-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;display:none;text-transform:uppercase;letter-spacing:.05em}
 .pose-badge.tracking{background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border);display:block}
 .pose-badge.loading{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(201,138,24,.4);display:block}
+.clear-video-btn{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:14px;display:none;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;z-index:10;line-height:1}
+.clear-video-btn:hover{background:rgba(200,60,60,.8);border-color:rgba(200,60,60,.6);color:#fff}
+.clear-video-btn.visible{display:flex}
 
 /* scrubber */
 .scrubber-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px}
@@ -321,6 +324,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
           <canvas class="pose-layer" id="cv-you"></canvas>
           <div class="vid-name" id="name-you"></div>
           <div class="pose-badge" id="badge-you"></div>
+          <button class="clear-video-btn" id="clear-you" onclick="clearVideo('you')" title="Remove video">✕</button>
         </div>
       </div>
       <div class="vcard">
@@ -336,6 +340,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
           <canvas class="pose-layer" id="cv-pro"></canvas>
           <div class="vid-name" id="name-pro"></div>
           <div class="pose-badge" id="badge-pro"></div>
+          <button class="clear-video-btn" id="clear-pro" onclick="clearVideo('pro')" title="Remove video">✕</button>
         </div>
       </div>
     </div>
@@ -643,11 +648,34 @@ function loadFile(who,file){
   vid.playbackRate=currentSpeed;
   vid.addEventListener('loadedmetadata',()=>{ scrub.max=Math.floor(vid.duration*100); },{once:true});
   vid.play().catch(()=>{});
+  document.getElementById('clear-'+who).classList.add('visible');
   loaded[who]=true;
   const ready=loaded.you&&loaded.pro;
   document.getElementById('analyzeBtn').disabled=!ready;
   document.getElementById('statusMsg').textContent=ready?'Ready — click Analyze!':'Upload both videos to begin';
   startRenderLoop();
+}
+
+function clearVideo(who){
+  const vid=document.getElementById('vid-'+who);
+  vid.pause();vid.src='';vid.style.display='none';
+  document.getElementById('lbl-'+who).style.display='';
+  document.getElementById('name-'+who).style.display='none';
+  document.getElementById('inp-'+who).value='';
+  document.getElementById('clear-'+who).classList.remove('visible');
+  document.getElementById('badge-'+who).className='pose-badge';
+  const c=document.getElementById('cv-'+who);
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+  const scrub=document.getElementById('scrub'+who.charAt(0).toUpperCase()+who.slice(1));
+  scrub.value=0;
+  poseWorkers[who]=null;
+  liveAngles[who]=[0,0,0,0];
+  ['lly','llp'][who==='you'?0:1];
+  const pfx=who==='you'?'lly':'llp';
+  [0,1,2,3].forEach(i=>{ const el=document.getElementById(pfx+i); if(el) el.textContent='—'; });
+  loaded[who]=false;
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('statusMsg').textContent='Upload both videos to begin';
 }
 
 // ══ MEDIAPIPE POSE ══════════════════════════════════════════════════════════
@@ -1042,6 +1070,7 @@ function resetAnalyzer(){
     const c=document.getElementById('cv-'+w);
     c.getContext('2d').clearRect(0,0,c.width,c.height);
     document.getElementById('badge-'+w).className='pose-badge';
+    document.getElementById('clear-'+w).classList.remove('visible');
     document.getElementById('scrub'+w.charAt(0).toUpperCase()+w.slice(1)).value=0;
     loaded[w]=false;
   });
