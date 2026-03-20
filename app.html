@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwingCheck — AI Tennis Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --lime:#8aaa1a;--lime-bg:rgba(138,170,26,0.12);--lime-border:rgba(138,170,26,0.4);
+  --blue:#5a9fd4;--blue-bg:rgba(90,159,212,0.12);--blue-border:rgba(90,159,212,0.4);
+  --amber:#c98a18;--amber-bg:rgba(201,138,24,0.12);
+  --bg:#0d0f0a;--s1:#161810;--s2:#1e2118;--s3:#23261c;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --text:#e8eadd;--muted:#7a7d6e;--hint:#4a4d40;
+  --accent:#C8F135;
+}
+html,body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100%}
+body{padding:0;margin:0;overflow-x:hidden}
+
+/* ── NAV ── */
+nav{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:rgba(13,15,10,0.95);backdrop-filter:blur(10px);position:sticky;top:0;z-index:200}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.08em;color:var(--accent);text-decoration:none}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-link{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:4px;transition:all .15s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--accent)}
+.nav-btn{font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;padding:6px 14px;border-radius:4px;border:1px solid var(--lime-border);background:var(--lime-bg);color:var(--lime);cursor:pointer;transition:all .15s}
+.nav-btn:hover{background:rgba(138,170,26,.2)}
+
+/* ── SCREENS ── */
+.screen{display:none;min-height:calc(100vh - 53px)}
+.screen.active{display:block}
+
+/* ── SHOT SELECTOR SCREEN ── */
+#screen-select{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center}
+.select-eyebrow{font-size:11px;letter-spacing:.14em;color:var(--lime);text-transform:uppercase;margin-bottom:16px}
+.select-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,8vw,90px);line-height:.95;margin-bottom:12px}
+.select-title span{color:var(--accent)}
+.select-sub{font-size:15px;font-weight:300;color:var(--muted);margin-bottom:52px;max-width:440px;line-height:1.6}
+.shot-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:600px;margin-bottom:40px}
+.shot-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:28px 20px;cursor:pointer;transition:all .2s;text-align:left;position:relative;overflow:hidden}
+.shot-card:hover{border-color:var(--lime-border);background:var(--s2);transform:translateY(-2px)}
+.shot-card.selected{border-color:var(--accent);background:var(--lime-bg)}
+.shot-card::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 80% 20%,rgba(200,241,53,0.06),transparent 60%);pointer-events:none}
+.shot-emoji{font-size:32px;margin-bottom:12px;display:block}
+.shot-name{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.04em;margin-bottom:6px;color:var(--text)}
+.shot-desc{font-size:12px;color:var(--muted);line-height:1.5}
+.shot-metrics{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.shot-metric-tag{font-size:10px;font-weight:500;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,0.06);color:var(--muted);border:1px solid var(--border)}
+.shot-card.selected .shot-metric-tag{background:rgba(138,170,26,.15);color:var(--lime);border-color:var(--lime-border)}
+.start-btn{font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;padding:14px 40px;border-radius:6px;background:var(--accent);color:#0d0f0a;border:none;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none}
+.start-btn.ready{opacity:1;pointer-events:all}
+.start-btn.ready:hover{background:#d4f545;transform:translateY(-1px)}
+
+/* ── ANALYZER SCREEN ── */
+#screen-analyze{padding:20px 24px}
+.analyze-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.shot-pill{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.06em;padding:4px 12px;border-radius:4px;background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border)}
+.change-shot{font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.change-shot:hover{color:var(--text)}
+
+.info{background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue);margin-bottom:14px;line-height:1.6}
+
+/* panels */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.vcard{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.vcardhead{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
+.vcardlabel{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em}
+.tag-you{background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border)}
+.tag-pro{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+.dropzone{position:relative;aspect-ratio:16/9;background:#080a06}
+.dropzone.dragover{outline:2px dashed var(--lime-border);background:rgba(138,170,26,0.04)}
+.dz-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.dz-label input[type=file]{position:absolute;width:1px;height:1px;opacity:0;left:-9999px}
+.dz-icon{width:44px;height:44px;border-radius:50%;border:1.5px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--muted)}
+.dropzone:hover .dz-icon{border-color:var(--lime-border);color:var(--lime)}
+.dz-text{font-size:13px;color:var(--muted)}
+.dz-sub{font-size:11px;color:var(--hint)}
+.dropzone video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.dropzone canvas.pose-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.vid-name{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:4px 10px;font-size:10px;color:var(--muted);display:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pose-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;display:none;text-transform:uppercase;letter-spacing:.05em}
+.pose-badge.tracking{background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border);display:block}
+.pose-badge.loading{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(201,138,24,.4);display:block}
+.clear-video-btn{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:14px;display:none;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;z-index:10;line-height:1}
+.clear-video-btn:hover{background:rgba(200,60,60,.8);border-color:rgba(200,60,60,.6);color:#fff}
+.clear-video-btn.visible{display:flex}
+
+/* scrubber */
+.scrubber-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px}
+.scrubber-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.scrubber-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.scrubber-time{font-family:'Bebas Neue',sans-serif;font-size:13px;color:var(--text)}
+.scrubber-row{display:flex;align-items:center;gap:10px}
+.scrubber-row input[type=range]{flex:1;height:4px;accent-color:var(--accent);cursor:pointer}
+.speed-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.speed-label{font-size:11px;color:var(--muted)}
+.speed-btn{padding:4px 10px;font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;background:var(--s2);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);transition:all .15s}
+.speed-btn:hover{color:var(--text)}
+.speed-btn.active{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+.sync-toggle{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer}
+.sync-toggle input{accent-color:var(--lime)}
+
+/* controls */
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.btn{padding:7px 14px;font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;background:transparent;border:1px solid var(--border2);border-radius:8px;cursor:pointer;color:var(--text);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--s2)}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+.btn-p:hover{background:rgba(138,170,26,.2)}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.smsg{margin-left:auto;font-size:11px;color:var(--muted)}
+
+/* live angles */
+.live-angles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.la-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.la-title{font-size:10px;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.la-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.la-item{display:flex;flex-direction:column;gap:2px}
+.la-label{font-size:9px;color:var(--muted)}
+.la-val{font-family:'Bebas Neue',sans-serif;font-size:20px;font-weight:600}
+
+/* phase */
+.phasebar{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.phaselabel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.phases{display:flex;gap:4px;flex-wrap:wrap}
+.pbtn{flex:1;min-width:80px;padding:5px 4px;font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;background:var(--s2);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.pbtn:hover{color:var(--text)}
+.pbtn.active{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+
+/* metrics */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;transition:grid-template-columns .2s}
+.mcard{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px}
+.mname{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.mvals{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
+.myou{font-family:'Bebas Neue',sans-serif;font-size:22px;font-weight:600;color:var(--lime)}
+.mpro{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--blue)}
+.brow{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.bdot{width:6px;height:6px;border-radius:1px;flex-shrink:0}
+.bbg{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.bfill{height:100%;border-radius:2px;transition:width .5s ease}
+.dtag{font-size:10px;font-weight:600;margin-top:5px;display:inline-block;padding:1px 6px;border-radius:3px}
+.dg{background:rgba(138,170,26,.15);color:var(--lime)}
+.dw{background:var(--amber-bg);color:var(--amber)}
+.db{background:rgba(226,75,74,.15);color:#c44}
+
+/* info icon + modal */
+.mname-row{display:flex;align-items:center;gap:5px;margin-bottom:6px}
+.mname{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.info-icon{width:14px;height:14px;border-radius:50%;border:1px solid var(--border2);display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);cursor:pointer;flex-shrink:0;transition:all .15s;font-style:normal;line-height:1}
+.info-icon:hover{border-color:var(--lime-border);color:var(--lime);background:var(--lime-bg)}
+.info-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:24px}
+.info-modal-bg.open{display:flex}
+.info-modal{background:#1c1e22;border:1px solid var(--border2);border-radius:14px;padding:28px;max-width:420px;width:100%;position:relative}
+.info-modal-close{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;background:var(--s2);border:1px solid var(--border);color:var(--muted);font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s}
+.info-modal-close:hover{color:var(--text);border-color:var(--border2)}
+.info-modal-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.04em;margin-bottom:16px;color:var(--accent)}
+.info-row{margin-bottom:12px}
+.info-row-label{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--lime);margin-bottom:4px}
+.info-row-text{font-size:13px;color:var(--muted);line-height:1.6}
+.info-tip{background:var(--lime-bg);border:1px solid var(--lime-border);border-radius:8px;padding:10px 12px;margin-top:14px;font-size:12px;color:var(--lime);line-height:1.6}
+
+/* chart */
+.cpanel{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.chead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.ctitle{font-size:13px;font-weight:500}
+.legend{display:flex;gap:14px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.lsq{width:8px;height:8px;border-radius:2px}
+
+/* score */
+.scorerow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.scard{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+.sinner{display:flex;align-items:center;gap:16px}
+.snum{font-family:'Bebas Neue',sans-serif;font-size:52px;font-weight:700;color:var(--lime);line-height:1}
+.ssub{font-size:11px;color:var(--muted);margin-top:5px}
+.brrow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.brlabel{font-size:11px;color:var(--muted);width:110px;flex-shrink:0}
+.brbg{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.brfill{height:100%;border-radius:2px;transition:width .7s ease}
+.brval{font-size:11px;font-weight:500;width:32px;text-align:right}
+
+/* save session btn */
+.save-row{display:flex;justify-content:flex-end;margin-bottom:12px}
+.save-btn{font-size:12px;font-weight:500;font-family:'DM Sans',sans-serif;padding:8px 18px;border-radius:6px;background:var(--blue-bg);border:1px solid var(--blue-border);color:var(--blue);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.save-btn:hover{background:rgba(90,159,212,.2)}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* tips */
+.fpanel{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;display:none}
+.ftitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+.tip{display:flex;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.tip:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.tipnum{width:20px;height:20px;border-radius:50%;background:var(--lime-bg);border:1px solid var(--lime-border);color:var(--lime);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.tipbody strong{font-weight:500;font-size:13px;display:block;margin-bottom:2px}
+.tipbody span{font-size:12px;color:var(--muted);line-height:1.5}
+
+/* ── PROGRESS SCREEN ── */
+#screen-progress{padding:24px}
+.progress-header{margin-bottom:28px}
+.progress-header h2{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:.04em;margin-bottom:4px}
+.progress-header p{font-size:13px;color:var(--muted)}
+.progress-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 24px;text-align:center;gap:12px}
+.progress-empty-icon{font-size:48px;opacity:.3}
+.progress-empty h3{font-size:18px;font-weight:500;color:var(--muted)}
+.progress-empty p{font-size:13px;color:var(--hint);max-width:320px;line-height:1.6}
+
+.session-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:28px}
+.session-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color .15s}
+.session-card:hover{border-color:var(--border2)}
+.session-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.session-shot{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.04em}
+.session-score{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--lime);line-height:1}
+.session-date{font-size:11px;color:var(--muted);margin-top:2px}
+.session-bars{display:flex;flex-direction:column;gap:5px}
+.session-bar-row{display:flex;align-items:center;gap:8px}
+.session-bar-label{font-size:10px;color:var(--muted);width:70px;flex-shrink:0}
+.session-bar-bg{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.session-bar-fill{height:100%;border-radius:2px;background:var(--lime)}
+.session-bar-val{font-size:10px;font-weight:500;color:var(--text);width:28px;text-align:right}
+.session-delete{font-size:10px;color:var(--hint);cursor:pointer;margin-top:10px;display:inline-block}
+.session-delete:hover{color:#c44}
+
+.progress-chart-panel{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px}
+.progress-chart-title{font-size:13px;font-weight:500;margin-bottom:14px}
+
+.progress-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.pstat{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.pstat-num{font-family:'Bebas Neue',sans-serif;font-size:36px;color:var(--lime);line-height:1}
+.pstat-label{font-size:11px;color:var(--muted);margin-top:4px}
+
+.clear-btn{font-size:12px;color:var(--hint);cursor:pointer;background:none;border:none;font-family:'DM Sans',sans-serif;text-decoration:underline;text-underline-offset:3px}
+.clear-btn:hover{color:#c44}
+
+@media(max-width:700px){
+  .panels,.mgrid,.scorerow,.live-angles,.shot-grid,.progress-stats{grid-template-columns:1fr}
+  .shot-grid{grid-template-columns:1fr 1fr}
+  .la-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">SwingCheck</a>
+  <div class="nav-right">
+    <a class="nav-link active" onclick="showScreen('select')" id="nav-analyze">Analyze</a>
+    <a class="nav-link" onclick="showScreen('progress')" id="nav-progress">Progress</a>
+    <button class="nav-btn" onclick="showScreen('select')">New Session</button>
+  </div>
+</nav>
+
+<!-- ══ SCREEN 1: SHOT SELECTOR ══════════════════════════════════════════════ -->
+<div class="screen active" id="screen-select">
+  <p class="select-eyebrow">Step 1 of 3</p>
+  <h1 class="select-title">Pick your<br><span>shot.</span></h1>
+  <p class="select-sub">Choose the shot you want to analyze. Each shot tracks different key angles.</p>
+
+  <div class="shot-grid">
+    <div class="shot-card" onclick="selectShot('forehand',this)">
+      <span class="shot-emoji">🎾</span>
+      <div class="shot-name">Forehand</div>
+      <div class="shot-desc">The most common shot. Analyze elbow extension, shoulder rotation, hip drive and follow-through.</div>
+      <div class="shot-metrics">
+        <span class="shot-metric-tag">Elbow angle</span>
+        <span class="shot-metric-tag">Shoulder rot.</span>
+        <span class="shot-metric-tag">Hip drive</span>
+        <span class="shot-metric-tag">Knee bend</span>
+      </div>
+    </div>
+    <div class="shot-card" onclick="selectShot('backhand',this)">
+      <span class="shot-emoji">↩️</span>
+      <div class="shot-name">Backhand</div>
+      <div class="shot-desc">Two-handed or one-handed. Tracks opposite shoulder rotation, wrist alignment and weight transfer.</div>
+      <div class="shot-metrics">
+        <span class="shot-metric-tag">Shoulder rot.</span>
+        <span class="shot-metric-tag">Elbow angle</span>
+        <span class="shot-metric-tag">Hip rotation</span>
+        <span class="shot-metric-tag">Wrist align.</span>
+      </div>
+    </div>
+    <div class="shot-card" onclick="selectShot('serve',this)">
+      <span class="shot-emoji">🏆</span>
+      <div class="shot-name">Serve</div>
+      <div class="shot-desc">The most technical shot. Tracks trophy position, toss arm, shoulder rotation and leg drive.</div>
+      <div class="shot-metrics">
+        <span class="shot-metric-tag">Trophy pos.</span>
+        <span class="shot-metric-tag">Toss arm</span>
+        <span class="shot-metric-tag">Shoulder rot.</span>
+        <span class="shot-metric-tag">Leg drive</span>
+      </div>
+    </div>
+    <div class="shot-card" onclick="selectShot('volley',this)">
+      <span class="shot-emoji">⚡</span>
+      <div class="shot-name">Volley</div>
+      <div class="shot-desc">Quick reflex shot at the net. Tracks compact swing, elbow position, ready stance and split step.</div>
+      <div class="shot-metrics">
+        <span class="shot-metric-tag">Elbow pos.</span>
+        <span class="shot-metric-tag">Compact swing</span>
+        <span class="shot-metric-tag">Stance width</span>
+        <span class="shot-metric-tag">Wrist lock</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="start-btn" id="startBtn" onclick="startAnalysis()">Start Analysis →</button>
+</div>
+
+<!-- ══ SCREEN 2: ANALYZER ════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-analyze">
+  <div style="padding:20px 24px">
+
+    <div class="analyze-header">
+      <div class="shot-pill" id="shotPill">Forehand</div>
+      <span class="change-shot" onclick="showScreen('select')">← Change shot</span>
+      <span class="smsg" id="statusMsg" style="margin-left:auto">Upload both videos to begin</span>
+    </div>
+
+    <div class="info">
+      <strong>Step 2:</strong> Upload your video on the left · Upload a reference player on the right · Then hit <strong>Analyze</strong>
+    </div>
+
+    <!-- Video panels -->
+    <div class="panels">
+      <div class="vcard">
+        <div class="vcardhead"><span class="vcardlabel">Your swing</span><span class="tag tag-you">YOU</span></div>
+        <div class="dropzone" id="dz-you">
+          <label class="dz-label" id="lbl-you">
+            <input type="file" accept="video/*" id="inp-you">
+            <div class="dz-icon">+</div>
+            <div class="dz-text">Click to upload your video</div>
+            <div class="dz-sub">MP4 · MOV · WebM · or drag &amp; drop</div>
+          </label>
+          <video id="vid-you" loop muted playsinline></video>
+          <canvas class="pose-layer" id="cv-you"></canvas>
+          <div class="vid-name" id="name-you"></div>
+          <div class="pose-badge" id="badge-you"></div>
+          <button class="clear-video-btn" id="clear-you" onclick="clearVideo('you')" title="Remove video">✕</button>
+        </div>
+      </div>
+      <div class="vcard">
+        <div class="vcardhead"><span class="vcardlabel">Reference player</span><span class="tag tag-pro">REF</span></div>
+        <div class="dropzone" id="dz-pro">
+          <label class="dz-label" id="lbl-pro">
+            <input type="file" accept="video/*" id="inp-pro">
+            <div class="dz-icon">+</div>
+            <div class="dz-text">Click to upload reference video</div>
+            <div class="dz-sub">MP4 · MOV · WebM · or drag &amp; drop</div>
+          </label>
+          <video id="vid-pro" loop muted playsinline></video>
+          <canvas class="pose-layer" id="cv-pro"></canvas>
+          <div class="vid-name" id="name-pro"></div>
+          <div class="pose-badge" id="badge-pro"></div>
+          <button class="clear-video-btn" id="clear-pro" onclick="clearVideo('pro')" title="Remove video">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrubber -->
+    <div class="scrubber-panel">
+      <div class="scrubber-head">
+        <span class="scrubber-title">Frame scrubber</span>
+        <span class="scrubber-time" id="timeDisplay">0.00s / 0.00s</span>
+      </div>
+      <div class="scrubber-row">
+        <span style="font-size:11px;color:var(--muted);width:26px">You</span>
+        <input type="range" id="scrubYou" min="0" max="1000" value="0" step="1">
+      </div>
+      <div class="scrubber-row" style="margin-top:6px">
+        <span style="font-size:11px;color:var(--muted);width:26px">Ref</span>
+        <input type="range" id="scrubPro" min="0" max="1000" value="0" step="1">
+      </div>
+      <div class="speed-row">
+        <span class="speed-label">Speed:</span>
+        <button class="speed-btn" onclick="setSpeed(0.1)">0.1×</button>
+        <button class="speed-btn" onclick="setSpeed(0.25)">0.25×</button>
+        <button class="speed-btn" onclick="setSpeed(0.5)">0.5×</button>
+        <button class="speed-btn active" onclick="setSpeed(1)">1×</button>
+        <button class="speed-btn" onclick="setSpeed(2)">2×</button>
+        <label class="sync-toggle"><input type="checkbox" id="syncToggle" checked> Sync videos</label>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+      <button class="btn btn-p" id="analyzeBtn" disabled onclick="runAnalysis()">Analyze</button>
+      <button class="btn" onclick="togglePlay()" id="playBtn">▶ Play</button>
+      <button class="btn" onclick="stepFrame(-1)">← Frame</button>
+      <button class="btn" onclick="stepFrame(1)">Frame →</button>
+      <button class="btn" onclick="toggleSkeleton()" id="skelBtn">Hide skeleton</button>
+      <button class="btn" onclick="resetAnalyzer()">Reset</button>
+    </div>
+
+    <!-- Live angles -->
+    <div class="live-angles">
+      <div class="la-card">
+        <div class="la-title" style="color:var(--lime)">Your live angles <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(current frame)</span></div>
+        <div class="la-grid" id="liveYou">
+          <div class="la-item"><span class="la-label" id="lly0-label">Elbow</span><span class="la-val" id="lly0" style="color:var(--lime)">—</span></div>
+          <div class="la-item"><span class="la-label" id="lly1-label">Shoulder</span><span class="la-val" id="lly1" style="color:var(--lime)">—</span></div>
+          <div class="la-item"><span class="la-label" id="lly2-label">Hip</span><span class="la-val" id="lly2" style="color:var(--lime)">—</span></div>
+          <div class="la-item"><span class="la-label" id="lly3-label">Knee</span><span class="la-val" id="lly3" style="color:var(--lime)">—</span></div>
+        </div>
+      </div>
+      <div class="la-card">
+        <div class="la-title" style="color:var(--blue)">Reference live angles <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(current frame)</span></div>
+        <div class="la-grid" id="livePro">
+          <div class="la-item"><span class="la-label" id="llp0-label">Elbow</span><span class="la-val" id="llp0" style="color:var(--blue)">—</span></div>
+          <div class="la-item"><span class="la-label" id="llp1-label">Shoulder</span><span class="la-val" id="llp1" style="color:var(--blue)">—</span></div>
+          <div class="la-item"><span class="la-label" id="llp2-label">Hip</span><span class="la-val" id="llp2" style="color:var(--blue)">—</span></div>
+          <div class="la-item"><span class="la-label" id="llp3-label">Knee</span><span class="la-val" id="llp3" style="color:var(--blue)">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Phase selector -->
+    <div class="phasebar">
+      <div class="phaselabel">Phase averages <span style="font-size:10px;color:var(--hint);text-transform:none;letter-spacing:0;font-weight:400">— stable values from analysis</span></div>
+      <div class="phases" id="phaseButtons"></div>
+    </div>
+
+    <!-- Metric cards -->
+    <div class="mgrid" id="metricCards"></div>
+
+    <!-- Chart -->
+    <div class="cpanel">
+      <div class="chead">
+        <span class="ctitle" id="chartTitle">Key angle across swing phases</span>
+        <div class="legend"><div class="leg"><div class="lsq" style="background:var(--lime)"></div>You</div><div class="leg"><div class="lsq" style="background:var(--blue)"></div>Reference</div></div>
+      </div>
+      <div style="position:relative;height:190px"><canvas id="angleChart"></canvas></div>
+    </div>
+
+    <!-- Score -->
+    <div class="scorerow">
+      <div class="scard">
+        <div class="stitle">Overall similarity</div>
+        <div class="sinner">
+          <div><div class="snum" id="scoreNum">—</div><div class="ssub" id="scoreSub">Analyze to see score</div></div>
+          <svg width="72" height="72" viewBox="0 0 72 72" style="flex-shrink:0">
+            <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="7"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="#8aaa1a" stroke-width="7" stroke-dasharray="182.2" stroke-dashoffset="182.2" id="scoreRing" stroke-linecap="round" transform="rotate(-90 36 36)" style="transition:stroke-dashoffset 0.9s ease"/>
+          </svg>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="stitle">Score breakdown</div>
+        <div id="scoreBreakdown"></div>
+      </div>
+    </div>
+
+    <!-- Save session -->
+    <div class="save-row">
+      <button class="save-btn" id="saveBtn" disabled onclick="saveSession()">💾 Save to Progress Tracker</button>
+    </div>
+
+    <!-- Tips -->
+    <div class="fpanel" id="fpanel">
+      <div class="ftitle">Coaching tips for your <span id="tipShotLabel"></span></div>
+      <div id="tipsContainer"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ SCREEN 3: PROGRESS ════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-progress">
+  <div class="progress-header">
+    <h2>Your Progress</h2>
+    <p>Track your improvement over time across all shot types</p>
+  </div>
+
+  <div id="progressContent"></div>
+</div>
+
+<!-- Info modal -->
+<div class="info-modal-bg" id="infoModalBg" onclick="closeInfoModal(event)">
+  <div class="info-modal">
+    <div class="info-modal-close" onclick="closeInfoModal()">✕</div>
+    <div class="info-modal-title" id="infoModalTitle">Metric</div>
+    <div class="info-row"><div class="info-row-label">What it measures</div><div class="info-row-text" id="infoModalWhat"></div></div>
+    <div class="info-row"><div class="info-row-label">How to read the number</div><div class="info-row-text" id="infoModalScale"></div></div>
+    <div class="info-row"><div class="info-row-label">Ideal range</div><div class="info-row-text" id="infoModalIdeal"></div></div>
+    <div class="info-tip" id="infoModalTip"></div>
+  </div>
+</div>
+
+<script>
+// ══ METRIC EXPLANATIONS ════════════════════════════════════════════════════
+const METRIC_INFO = {
+  'Elbow angle': {
+    what: 'The angle at your elbow between your upper arm and forearm.',
+    scale: 'Higher = straighter arm. Lower = more bent.',
+    ideal: 'At contact: aim for 150–165°. A bent "chicken wing" at contact kills power.',
+    tip: 'Think of your arm as a whip — it should be nearly fully extended when you strike the ball.'
+  },
+  'Shoulder rot.': {
+    what: 'How much your shoulders have rotated relative to the baseline.',
+    scale: 'Higher = more rotation. Lower = more closed off.',
+    ideal: 'On the backswing: 80–100° of shoulder turn loads power. At contact: shoulders should be opening toward the target.',
+    tip: 'Imagine your chest facing the back fence on the backswing, then the net at contact.'
+  },
+  'Hip rotation': {
+    what: 'The angle of your hips relative to the baseline during the swing.',
+    scale: 'Higher = more hip turn. Lower = hips staying square.',
+    ideal: 'Hips should lead the swing — rotating before the shoulders to create a kinetic chain of power.',
+    tip: 'Your hips should beat your shoulders to the ball. Think "hips first, arm follows."'
+  },
+  'Knee angle': {
+    what: 'The angle at your knee joint between your upper and lower leg.',
+    scale: 'LOWER = more bent (more athletic). HIGHER = straighter leg (less loaded).',
+    ideal: 'Ready position: 130–150°. More bend = more power and balance. 180° = completely straight, no athletic position.',
+    tip: 'Stay low. Bending your knees lowers your center of gravity and lets you drive through the ball with your legs.'
+  },
+  'Knee bend': {
+    what: 'The angle at your knee joint between your upper and lower leg.',
+    scale: 'LOWER = more bent (more athletic). HIGHER = straighter leg (less loaded).',
+    ideal: 'Ready position: 130–150°. More bend = more power and balance. 180° = completely straight, no athletic position.',
+    tip: 'Stay low. Bending your knees lowers your center of gravity and lets you push up explosively into the serve.'
+  },
+  'Wrist align.': {
+    what: 'The alignment of your wrist joint at contact — how neutral or cocked it is.',
+    scale: 'Higher = more extended (laid back). Lower = more flexed (flipped).',
+    ideal: 'At contact on the backhand: wrist should be firm and neutral, not flipping through the ball.',
+    tip: 'A flipping wrist at contact causes inconsistency. Keep it locked and let your arm and shoulder do the work.'
+  },
+  'Toss arm elevation': {
+    what: 'How high and straight your non-dominant arm reaches during the ball toss.',
+    scale: 'Higher = arm reaching further up. Lower = arm dropping too early.',
+    ideal: 'Your toss arm should stay fully extended until the ball has left your hand — dropping it early causes toss inconsistency.',
+    tip: 'Imagine your toss arm is pointing at where you want the ball to go. Keep it up as long as possible.'
+  },
+  'Contact height': {
+    what: 'How high your racket-arm wrist is relative to your head at the moment of contact.',
+    scale: 'Higher = hitting ball higher up. Lower = catching the ball on the way down.',
+    ideal: 'Ideal contact is at the peak of the toss — as high as you can comfortably reach. Hitting on the way down loses pace.',
+    tip: 'If your contact height is low, your toss might be too high or you may be starting your swing too late.'
+  },
+  'Elbow pos.': {
+    what: 'The position and angle of your elbow at the net during a volley.',
+    scale: 'Higher = elbow up and in front. Lower = elbow dropping or pulling back.',
+    ideal: 'Elbow should stay in front of your body and at roughly shoulder height — never let it pull back behind you.',
+    tip: 'Think of holding a tray. Your elbow stays forward, racket face stays open.'
+  },
+  'Swing compactness': {
+    what: 'How much your arm swings back before the volley — less is more.',
+    scale: 'Higher = bigger swing. Lower = more compact punch.',
+    ideal: 'Volleys should be punched, not swung. The racket should barely move back — just block and redirect.',
+    tip: '"Catch the ball" not "hit the ball." The less backswing the better at the net.'
+  },
+  'Stance width': {
+    what: 'How wide your feet are apart in your ready position at the net.',
+    scale: 'Higher = wider stance. Lower = feet too close together.',
+    ideal: 'Feet should be just wider than shoulder-width for stability. Too narrow = getting knocked off balance.',
+    tip: 'A wider base lets you lunge left or right quickly without falling. Think split step before every volley.'
+  },
+  'Wrist lock': {
+    what: 'How firm your wrist is at contact during the volley.',
+    scale: 'Higher = wrist more locked/extended. Lower = wrist bending through contact.',
+    ideal: 'Wrist should be completely firm at contact — no give. A soft wrist sends the ball flying unpredictably.',
+    tip: 'Squeeze your grip slightly before contact and keep the wrist rigid through the punch.'
+  }
+};
+
+// ══ SHOT DEFINITIONS ═══════════════════════════════════════════════════════
+const SHOTS = {
+  forehand: {
+    label: 'Forehand',
+    emoji: '🎾',
+    metrics: ['Elbow angle','Shoulder rot.','Hip rotation','Knee angle'],
+    phases: ['Preparation','Backswing','Forward swing','Contact','Follow-through'],
+    phaseKeys: ['prep','backswing','fwd','contact','follow'],
+    phaseMults: {prep:[.50,.55,.40,.90],backswing:[.70,.75,.65,.80],fwd:[.85,.85,.80,.85],contact:[1.0,1.0,1.0,.75],follow:[.90,.90,.85,.70]},
+    maxA: [180,120,100,180],
+    tips: [
+      {name:'Elbow angle', tip: d=>d>0?'Extend your arm more through the swing — your elbow is bending too much.':'Great extension! Stay relaxed through the follow-through.'},
+      {name:'Shoulder rotation', tip: d=>d>0?'Rotate your shoulders more on the backswing to generate power.':'Nice shoulder turn — make sure your upper body follows through.'},
+      {name:'Hip drive', tip: d=>d>0?'Drive your hips through the ball — hip rotation generates forehand power.':'Strong hip drive. Keep upper body coordinated with your hips.'},
+      {name:'Knee angle', tip: d=>d>0?'Your knees are straighter than the reference — bend more to stay low and balanced.':'Good knee bend. Make sure you can still push off into the shot.'}
+    ],
+    breakdown: ['Arm mechanics','Body rotation','Stance & balance','Timing']
+  },
+  backhand: {
+    label: 'Backhand',
+    emoji: '↩️',
+    metrics: ['Shoulder rot.','Elbow angle','Hip rotation','Wrist align.'],
+    phases: ['Preparation','Unit turn','Backswing','Contact','Follow-through'],
+    phaseKeys: ['prep','unit','backswing','contact','follow'],
+    phaseMults: {prep:[.45,.50,.40,.85],unit:[.65,.70,.60,.80],backswing:[.80,.80,.70,.85],contact:[1.0,1.0,1.0,.80],follow:[.85,.85,.80,.70]},
+    maxA: [120,180,100,90],
+    tips: [
+      {name:'Shoulder rotation', tip: d=>d>0?'Rotate your non-dominant shoulder more on the unit turn for power.':'Great rotation! Watch you don\'t over-rotate and lose control.'},
+      {name:'Elbow position', tip: d=>d>0?'Keep your elbows more in front of you at contact for control.':'Good elbow position — stay compact through the swing.'},
+      {name:'Hip rotation', tip: d=>d>0?'Transfer your weight and rotate hips through the ball more aggressively.':'Strong hip drive on the backhand side.'},
+      {name:'Wrist alignment', tip: d=>d>0?'Keep your wrist more neutral at contact — avoid flipping at the ball.':'Nice wrist position — maintain this through the contact zone.'}
+    ],
+    breakdown: ['Shoulder rotation','Hip transfer','Arm position','Wrist control']
+  },
+  serve: {
+    label: 'Serve',
+    emoji: '🏆',
+    metrics: ['Toss arm elevation','Knee bend','Contact height'],
+    phases: ['Ready pos.','Trophy','Ball toss','Contact','Follow-through'],
+    phaseKeys: ['ready','trophy','toss','contact','follow'],
+    phaseMults: {ready:[.45,.90,.30],trophy:[.70,.65,.60],toss:[.90,.80,.85],contact:[1.0,.55,1.0],follow:[.60,.45,.70]},
+    maxA: [180,180,180],
+    serveMode: true,
+    tips: [
+      {name:'Toss arm elevation', tip: d=>d>0?'Keep your toss arm reaching higher and longer — dropping it early causes inconsistent tosses.':'Great toss arm height. Keep that extension through the release.'},
+      {name:'Knee bend', tip: d=>d>0?'Bend your knees more in the trophy position to load power for the upward drive.':'Good knee bend. Make sure you\'re exploding upward into contact.'},
+      {name:'Contact height', tip: d=>d>0?'Make contact higher — hit the ball at the peak of the toss, not on the way down.':'Good contact height. You\'re catching the ball near its peak.'}
+    ],
+    breakdown: ['Toss arm','Leg loading','Contact timing']
+  },
+  volley: {
+    label: 'Volley',
+    emoji: '⚡',
+    metrics: ['Elbow pos.','Swing compactness','Stance width','Wrist lock'],
+    phases: ['Split step','Ready pos.','Contact','Punch','Recovery'],
+    phaseKeys: ['split','ready','contact','punch','recovery'],
+    phaseMults: {split:[.60,.70,.55,.85],ready:[.75,.80,.65,.90],contact:[1.0,1.0,1.0,.95],punch:[.80,.75,.80,.85],recovery:[.60,.65,.70,.80]},
+    maxA: [160,60,90,30],
+    tips: [
+      {name:'Elbow position', tip: d=>d>0?'Keep your elbow higher and in front — don\'t let it drop at contact.':'Good elbow position at the net. Stay compact.'},
+      {name:'Swing compactness', tip: d=>d>0?'Block the volley more — less swing, more punch. Think "catch" not "hit".':'Great compact volley. Let the ball\'s pace do the work.'},
+      {name:'Stance width', tip: d=>d>0?'Widen your stance slightly for better balance and court coverage.':'Good ready position at the net.'},
+      {name:'Wrist firmness', tip: d=>d>0?'Lock your wrist more firmly at contact — don\'t let it flex.':'Solid wrist at contact. Maintain this through the punch.'}
+    ],
+    breakdown: ['Elbow control','Punch technique','Net stance','Wrist firmness']
+  }
+};
+
+// ══ STATE ══════════════════════════════════════════════════════════════════
+let currentShot = null;
+let loaded={you:false,pro:false};
+let chartInst=null,currentPhase='',analyzed=false,phaseData={};
+let showSkeleton=true,isPlaying=false,currentSpeed=1;
+let poseWorkers={you:null,pro:null};
+let liveAngles={you:[0,0,0,0],pro:[0,0,0,0]};
+let rafId=null;
+let lastAnalysisResult=null;
+let collectingAngles=false; // true while analysis is scrubbing — blocks live readout updates
+
+// ══ NAVIGATION ═════════════════════════════════════════════════════════════
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('active'));
+  if(name==='progress'){
+    document.getElementById('nav-progress').classList.add('active');
+    renderProgress();
+  } else {
+    document.getElementById('nav-analyze').classList.add('active');
+  }
+  if(name==='select') document.getElementById('screen-select').style.display='flex';
+  else document.getElementById('screen-select').style.display='';
+}
+
+// ══ SHOT SELECTOR ══════════════════════════════════════════════════════════
+function selectShot(shot, card){
+  document.querySelectorAll('.shot-card').forEach(c=>c.classList.remove('selected'));
+  card.classList.add('selected');
+  currentShot=shot;
+  document.getElementById('startBtn').classList.add('ready');
+}
+
+function startAnalysis(){
+  if(!currentShot) return;
+  const s=SHOTS[currentShot];
+  document.getElementById('shotPill').textContent=s.emoji+' '+s.label;
+  document.getElementById('tipShotLabel').textContent=s.label.toLowerCase();
+  currentPhase=s.phaseKeys[0];
+  buildPhaseButtons();
+  buildMetricCards();
+  buildScoreBreakdown();
+  updateLiveLabels();
+  showScreen('analyze');
+}
+
+function buildPhaseButtons(){
+  const s=SHOTS[currentShot];
+  const container=document.getElementById('phaseButtons');
+  container.innerHTML=s.phases.map((p,i)=>`
+    <button class="pbtn${i===0?' active':''}" onclick="setPhase(this,'${s.phaseKeys[i]}')">${p}</button>
+  `).join('');
+}
+
+function buildMetricCards(){
+  const s=SHOTS[currentShot];
+  const n=s.metrics.length;
+  const grid=document.getElementById('metricCards');
+  grid.style.gridTemplateColumns=`repeat(${n},1fr)`;
+  grid.innerHTML=s.metrics.map((m,i)=>`
+    <div class="mcard">
+      <div class="mname-row">
+        <span class="mname">${m}</span>
+        <span class="info-icon" onclick="openInfoModal('${m}')" title="What is this?">?</span>
+      </div>
+      <div class="mvals"><span class="myou" id="m${i}y">—</span><span class="mpro" id="m${i}p">/ —</span></div>
+      <div class="brow"><div class="bdot" style="background:var(--lime)"></div><div class="bbg"><div class="bfill" id="b${i}y" style="width:0%;background:var(--lime)"></div></div></div>
+      <div class="brow"><div class="bdot" style="background:var(--blue)"></div><div class="bbg"><div class="bfill" id="b${i}p" style="width:0%;background:var(--blue)"></div></div></div>
+      <span class="dtag" id="d${i}"></span>
+    </div>
+  `).join('');
+}
+
+function openInfoModal(metric){
+  const info=METRIC_INFO[metric];
+  if(!info) return;
+  document.getElementById('infoModalTitle').textContent=metric;
+  document.getElementById('infoModalWhat').textContent=info.what;
+  document.getElementById('infoModalScale').textContent=info.scale;
+  document.getElementById('infoModalIdeal').textContent=info.ideal;
+  document.getElementById('infoModalTip').textContent='💡 '+info.tip;
+  document.getElementById('infoModalBg').classList.add('open');
+}
+
+function closeInfoModal(e){
+  if(e&&e.target!==document.getElementById('infoModalBg')&&!e.target.classList.contains('info-modal-close')) return;
+  document.getElementById('infoModalBg').classList.remove('open');
+}
+
+function buildScoreBreakdown(){
+  const s=SHOTS[currentShot];
+  document.getElementById('scoreBreakdown').innerHTML=s.breakdown.map((label,i)=>`
+    <div class="brrow">
+      <span class="brlabel">${label}</span>
+      <div class="brbg"><div class="brfill" id="br${i}" style="width:0%;background:${i%2===0?'var(--lime)':'var(--blue)'}"></div></div>
+      <span class="brval" id="brv${i}" style="color:${i%2===0?'var(--lime)':'var(--blue)'}">—</span>
+    </div>
+  `).join('');
+}
+
+function updateLiveLabels(){
+  const s=SHOTS[currentShot];
+  const isServe=s.serveMode;
+  // show/hide 4th slot depending on shot
+  const slot3y=document.getElementById('lly3')?.closest('.la-item');
+  const slot3p=document.getElementById('llp3')?.closest('.la-item');
+  if(slot3y) slot3y.style.display=isServe?'none':'flex';
+  if(slot3p) slot3p.style.display=isServe?'none':'flex';
+  // update labels for visible slots
+  s.metrics.forEach((m,i)=>{
+    const el1=document.getElementById('lly'+i+'-label');
+    const el2=document.getElementById('llp'+i+'-label');
+    if(el1) el1.textContent=m;
+    if(el2) el2.textContent=m;
+  });
+}
+
+// ══ FILE LOADING ════════════════════════════════════════════════════════════
+function setup(who){
+  const inp=document.getElementById('inp-'+who);
+  const dz=document.getElementById('dz-'+who);
+  inp.addEventListener('change',()=>{ if(inp.files[0]) loadFile(who,inp.files[0]); });
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();dz.classList.remove('dragover');
+    const f=e.dataTransfer.files[0];
+    if(f&&f.type.startsWith('video/')) loadFile(who,f);
+  });
+}
+
+function loadFile(who,file){
+  const vid=document.getElementById('vid-'+who);
+  const lbl=document.getElementById('lbl-'+who);
+  const nm=document.getElementById('name-'+who);
+  const scrubId='scrub'+who.charAt(0).toUpperCase()+who.slice(1);
+  const scrub=document.getElementById(scrubId);
+  vid.src=URL.createObjectURL(file);
+  vid.style.display='block';
+  lbl.style.display='none';
+  nm.textContent=file.name;
+  nm.style.display='block';
+  vid.muted=true;
+  vid.playbackRate=currentSpeed;
+  vid.addEventListener('loadedmetadata',()=>{ scrub.max=Math.floor(vid.duration*100); },{once:true});
+  vid.play().catch(()=>{});
+  document.getElementById('clear-'+who).classList.add('visible');
+  loaded[who]=true;
+  const ready=loaded.you&&loaded.pro;
+  document.getElementById('analyzeBtn').disabled=!ready;
+  document.getElementById('statusMsg').textContent=ready?'Ready — click Analyze!':'Upload both videos to begin';
+  startRenderLoop();
+}
+
+function clearVideo(who){
+  const vid=document.getElementById('vid-'+who);
+  vid.pause();vid.src='';vid.style.display='none';
+  document.getElementById('lbl-'+who).style.display='';
+  document.getElementById('name-'+who).style.display='none';
+  document.getElementById('inp-'+who).value='';
+  document.getElementById('clear-'+who).classList.remove('visible');
+  document.getElementById('badge-'+who).className='pose-badge';
+  const c=document.getElementById('cv-'+who);
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
+  const scrub=document.getElementById('scrub'+who.charAt(0).toUpperCase()+who.slice(1));
+  scrub.value=0;
+  poseWorkers[who]=null;
+  liveAngles[who]=[0,0,0,0];
+  ['lly','llp'][who==='you'?0:1];
+  const pfx=who==='you'?'lly':'llp';
+  [0,1,2,3].forEach(i=>{ const el=document.getElementById(pfx+i); if(el) el.textContent='—'; });
+  loaded[who]=false;
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('statusMsg').textContent='Upload both videos to begin';
+}
+
+// ══ MEDIAPIPE POSE ══════════════════════════════════════════════════════════
+const POSE_CDN='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404';
+
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[src="${src}"]`)){res();return;}
+    const s=document.createElement('script');
+    s.src=src;s.onload=res;s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function initPose(who,color){
+  const badge=document.getElementById('badge-'+who);
+  badge.textContent='Loading AI...';badge.className='pose-badge loading';
+  try{
+    await loadScript(`${POSE_CDN}/pose.js`);
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js');
+    const vid=document.getElementById('vid-'+who);
+    const canvas=document.getElementById('cv-'+who);
+    const pose=new window.Pose({locateFile:f=>`${POSE_CDN}/${f}`});
+    pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+    pose.onResults(results=>{
+      const ctx=canvas.getContext('2d');
+      canvas.width=canvas.offsetWidth||640;canvas.height=canvas.offsetHeight||360;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(!results.poseLandmarks) return;
+      if(showSkeleton){
+        window.drawConnectors(ctx,results.poseLandmarks,window.POSE_CONNECTIONS,{color:color+'cc',lineWidth:2.5});
+        window.drawLandmarks(ctx,results.poseLandmarks,{color,fillColor:color+'44',radius:3,lineWidth:1});
+      }
+      const a=extractAngles(results.poseLandmarks);
+      // Smooth live angles with simple lerp to reduce jitter
+      liveAngles[who]=liveAngles[who].map((prev,i)=>
+        prev===0 ? a[i] : Math.round(prev*0.6 + a[i]*0.4)
+      );
+      // Only update live readout cards when NOT mid-collection and NOT analyzing
+      if(!collectingAngles){
+        const pfx=who==='you'?'lly':'llp';
+        liveAngles[who].forEach((v,i)=>{ const el=document.getElementById(pfx+i); if(el) el.textContent=v>0?v+'°':'—'; });
+      }
+      // metric cards are ALWAYS frozen — never updated from here
+    });
+    badge.textContent='Tracking';badge.className='pose-badge tracking';
+    poseWorkers[who]=pose;
+    return pose;
+  }catch(e){
+    badge.textContent='Pose unavailable';badge.className='pose-badge loading';
+    console.warn('MediaPipe:',e);return null;
+  }
+}
+
+function angle3(a,b,c){
+  const ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};
+  const cos=(ba.x*bc.x+ba.y*bc.y)/(Math.sqrt(ba.x**2+ba.y**2)*Math.sqrt(bc.x**2+bc.y**2)+1e-6);
+  return Math.round(Math.acos(Math.max(-1,Math.min(1,cos)))*180/Math.PI);
+}
+
+function extractAngles(lm){
+  if(!lm||lm.length<33) return [0,0,0,0];
+  if(currentShot==='serve') return extractServeAngles(lm);
+  const elbow=angle3(lm[12],lm[14],lm[16]);
+  const shoulder=Math.round(Math.abs(Math.atan2(lm[11].y-lm[12].y,lm[11].x-lm[12].x)*180/Math.PI));
+  const hip=Math.round(Math.abs(Math.atan2(lm[23].y-lm[24].y,lm[23].x-lm[24].x)*180/Math.PI));
+  const knee=angle3(lm[24],lm[26],lm[28]);
+  return [elbow,shoulder,hip,knee];
+}
+
+function extractServeAngles(lm){
+  // 1. Toss arm elevation: angle of left arm (lm[11]=L shoulder, lm[13]=L elbow, lm[15]=L wrist)
+  //    Measure how high the left wrist is relative to the left shoulder (0=shoulder level, 180=straight up)
+  //    Use angle between left shoulder→left elbow→left wrist, then factor in wrist height
+  const tossArmAngle = angle3(lm[11], lm[13], lm[15]); // left arm straightness (180 = fully extended)
+  // Also check wrist height: negative y = higher on screen (MediaPipe y goes 0=top, 1=bottom)
+  const wristAboveShoulder = lm[11].y - lm[15].y; // positive = wrist is higher than shoulder
+  // Combine: straight arm + raised = high score. Scale to 0–180
+  const tossElevation = Math.round(Math.min(180, tossArmAngle * (0.6 + Math.max(0, wristAboveShoulder) * 1.2)));
+
+  // 2. Knee bend: right knee angle (lm[24]=R hip, lm[26]=R knee, lm[28]=R ankle)
+  //    180 = straight leg, 90 = deep bend
+  const kneeBend = angle3(lm[24], lm[26], lm[28]);
+
+  // 3. Contact height: how high the racket-arm wrist (lm[16]=R wrist) is vs the head (lm[0]=nose)
+  //    Higher wrist above nose = better contact point. Scale to 0–180
+  const noseY = lm[0].y;
+  const wristY = lm[16].y; // right wrist
+  const heightDiff = noseY - wristY; // positive = wrist above nose
+  const contactHeight = Math.round(Math.min(180, Math.max(0, 90 + heightDiff * 200)));
+
+  return [tossElevation, kneeBend, contactHeight];
+}
+
+// ══ RENDER LOOP ═════════════════════════════════════════════════════════════
+let lastPoseTime={you:-1,pro:-1};
+const POSE_INTERVAL=100;
+
+function startRenderLoop(){
+  if(rafId) return;
+  async function loop(){
+    rafId=requestAnimationFrame(loop);
+    const now=performance.now();
+    for(const who of['you','pro']){
+      const vid=document.getElementById('vid-'+who);
+      if(!vid.src||vid.readyState<2) continue;
+      const scrubId='scrub'+who.charAt(0).toUpperCase()+who.slice(1);
+      const scrub=document.getElementById(scrubId);
+      if(!scrub.dataset.dragging) scrub.value=Math.floor(vid.currentTime*100);
+      updateTimeDisplay();
+      const poseAge=now-(lastPoseTime[who]||0);
+      if(poseWorkers[who]&&poseAge>POSE_INTERVAL&&vid.readyState>=2){
+        lastPoseTime[who]=now;
+        try{ await poseWorkers[who].send({image:vid}); }catch(_){}
+      }
+    }
+  }
+  loop();
+}
+
+function updateTimeDisplay(){
+  const vy=document.getElementById('vid-you'),vp=document.getElementById('vid-pro');
+  const t1=vy.src?vy.currentTime.toFixed(2):'0.00';
+  const d1=vy.src&&vy.duration?vy.duration.toFixed(2):'0.00';
+  const t2=vp.src?vp.currentTime.toFixed(2):'0.00';
+  const d2=vp.src&&vp.duration?vp.duration.toFixed(2):'0.00';
+  document.getElementById('timeDisplay').textContent=`You ${t1}s/${d1}s · Ref ${t2}s/${d2}s`;
+}
+
+// ══ SCRUBBER ════════════════════════════════════════════════════════════════
+['you','pro'].forEach(who=>{
+  const scrubId='scrub'+who.charAt(0).toUpperCase()+who.slice(1);
+  const scrub=document.getElementById(scrubId);
+  scrub.addEventListener('mousedown',()=>scrub.dataset.dragging='1');
+  scrub.addEventListener('touchstart',()=>scrub.dataset.dragging='1');
+  scrub.addEventListener('input',()=>{
+    const vid=document.getElementById('vid-'+who);
+    if(!vid.src) return;
+    vid.currentTime=scrub.value/100;
+    if(document.getElementById('syncToggle').checked){
+      const other=who==='you'?'pro':'you';
+      const ovid=document.getElementById('vid-'+other);
+      const oscrub=document.getElementById('scrub'+other.charAt(0).toUpperCase()+other.slice(1));
+      if(ovid.src&&ovid.duration){
+        const ot=(scrub.value/100)/(vid.duration||1)*ovid.duration;
+        ovid.currentTime=ot;
+        oscrub.value=Math.floor(ot*100);
+      }
+    }
+  });
+  scrub.addEventListener('mouseup',()=>delete scrub.dataset.dragging);
+  scrub.addEventListener('touchend',()=>delete scrub.dataset.dragging);
+});
+
+// ══ CONTROLS ════════════════════════════════════════════════════════════════
+function setSpeed(s){
+  currentSpeed=s;
+  ['you','pro'].forEach(w=>{ document.getElementById('vid-'+w).playbackRate=s; });
+  document.querySelectorAll('.speed-btn').forEach(b=>{ b.classList.toggle('active',parseFloat(b.textContent)===s); });
+}
+
+function togglePlay(){
+  isPlaying=!isPlaying;
+  ['you','pro'].forEach(w=>{ const v=document.getElementById('vid-'+w); if(!v.src) return; isPlaying?v.play().catch(()=>{}):v.pause(); });
+  document.getElementById('playBtn').textContent=isPlaying?'⏸ Pause':'▶ Play';
+}
+
+function stepFrame(dir){
+  ['you','pro'].forEach(w=>{ const v=document.getElementById('vid-'+w); if(!v.src) return; v.pause(); v.currentTime=Math.max(0,Math.min(v.duration||99,v.currentTime+dir*(1/30))); });
+  isPlaying=false;
+  document.getElementById('playBtn').textContent='▶ Play';
+}
+
+function toggleSkeleton(){
+  showSkeleton=!showSkeleton;
+  document.getElementById('skelBtn').textContent=showSkeleton?'Hide skeleton':'Show skeleton';
+  if(!showSkeleton) ['cv-you','cv-pro'].forEach(id=>{ const c=document.getElementById(id); c.getContext('2d').clearRect(0,0,c.width,c.height); });
+}
+
+// ══ ANALYSIS ════════════════════════════════════════════════════════════════
+async function runAnalysis(){
+  const btn=document.getElementById('analyzeBtn');
+  btn.disabled=true;btn.textContent='Loading AI...';
+  document.getElementById('statusMsg').textContent='Loading pose model (~15s first time)...';
+
+  const [pY,pP]=await Promise.all([initPose('you','#8aaa1a'),initPose('pro','#5a9fd4')]);
+  btn.textContent='Analyzing...';
+  document.getElementById('statusMsg').textContent='Scanning frames...';
+
+  async function collectAngles(who,pose){
+    const vid=document.getElementById('vid-'+who);
+    const s=SHOTS[currentShot];
+    const n=s.metrics.length;
+    if(!pose||!vid.src) return seedAngles(vid.duration||3.5,n);
+    collectingAngles=true;
+    const accum=new Array(n).fill(0);let frames=0;
+    const dur=Math.min(vid.duration||5,5),step=dur/20;
+    for(let t=0;t<dur;t+=step){
+      vid.currentTime=t;
+      await new Promise(r=>setTimeout(r,80));
+      const la=liveAngles[who].slice(0,n);
+      if(la.some(v=>v>0)){ la.forEach((v,i)=>accum[i]+=v); frames++; }
+    }
+    vid.currentTime=0;
+    collectingAngles=false;
+    if(frames===0) return seedAngles(vid.duration||3.5,n);
+    return accum.map(v=>Math.round(v/frames));
+  }
+
+  function seedAngles(s,n=4){
+    const base=[Math.round(100+(s*17.3)%60),Math.round(50+(s*11.7)%55),Math.round(40+(s*9.1)%45),Math.round(130+(s*7.3)%40)];
+    return base.slice(0,n);
+  }
+
+  const [yBase,pBase]=await Promise.all([collectAngles('you',pY),collectAngles('pro',pP)]);
+  const s=SHOTS[currentShot];
+
+  phaseData={};
+  s.phaseKeys.forEach(ph=>{
+    const m=s.phaseMults[ph];
+    phaseData[ph]={you:yBase.map((v,i)=>Math.round(v*m[i])),pro:pBase.map((v,i)=>Math.round(v*m[i]))};
+  });
+
+  analyzed=true;
+  updateMetrics(currentPhase);
+  buildChart(yBase,pBase);
+  const overall=computeScore(yBase,pBase);
+  showTips(yBase,pBase);
+
+  lastAnalysisResult={shot:currentShot,yBase,pBase,overall,date:new Date().toISOString()};
+  document.getElementById('saveBtn').disabled=false;
+
+  ['you','pro'].forEach(w=>{ const v=document.getElementById('vid-'+w); v.currentTime=0; v.play().catch(()=>{}); });
+  isPlaying=true;document.getElementById('playBtn').textContent='⏸ Pause';
+  btn.textContent='Re-analyze';btn.disabled=false;
+  document.getElementById('statusMsg').textContent='Analysis complete — skeleton live on both videos';
+}
+
+function updateMetrics(phase){
+  if(!analyzed) return;
+  const s=SHOTS[currentShot];
+  const d=phaseData[phase];
+  if(!d) return;
+  s.metrics.forEach((_,i)=>{
+    const y=d.you[i],p=d.pro[i],diff=Math.abs(y-p);
+    document.getElementById('m'+i+'y').textContent=y+'°';
+    document.getElementById('m'+i+'p').textContent='/ '+p+'°';
+    document.getElementById('b'+i+'y').style.width=Math.min(100,Math.round(y/s.maxA[i]*100))+'%';
+    document.getElementById('b'+i+'p').style.width=Math.min(100,Math.round(p/s.maxA[i]*100))+'%';
+    const el=document.getElementById('d'+i);
+    if(diff<=10){el.className='dtag dg';el.textContent='On track';}
+    else if(diff<=25){el.className='dtag dw';el.textContent=diff+'° off';}
+    else{el.className='dtag db';el.textContent=diff+'° off';}
+  });
+}
+
+function buildChart(yB,pB){
+  const s=SHOTS[currentShot];
+  const mults=Object.values(s.phaseMults).map(m=>m[0]);
+  if(chartInst) chartInst.destroy();
+  document.getElementById('chartTitle').textContent=s.metrics[0]+' across phases';
+  chartInst=new Chart(document.getElementById('angleChart'),{
+    type:'line',
+    data:{labels:s.phases,datasets:[
+      {label:'You',data:mults.map(m=>Math.round(yB[0]*m)),borderColor:'#8aaa1a',backgroundColor:'rgba(138,170,26,.1)',tension:.4,pointRadius:5,pointBackgroundColor:'#8aaa1a',fill:true},
+      {label:'Reference',data:mults.map(m=>Math.round(pB[0]*m)),borderColor:'#5a9fd4',backgroundColor:'rgba(90,159,212,.07)',tension:.4,pointRadius:5,pointBackgroundColor:'#5a9fd4',fill:true}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11}}},
+              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11},callback:v=>v+'°'},min:20}}}
+  });
+}
+
+function computeScore(yA,pA){
+  const s=SHOTS[currentShot];
+  const cats=yA.map((v,i)=>Math.max(0,Math.round((1-Math.abs(v-pA[i])/s.maxA[i])*100)));
+  const overall=Math.round(cats.reduce((a,b)=>a+b,0)/cats.length);
+  document.getElementById('scoreNum').textContent=overall+'%';
+  document.getElementById('scoreRing').style.strokeDashoffset=182.2*(1-overall/100);
+  document.getElementById('scoreSub').textContent=overall>=80?'Excellent match!':overall>=65?'Good — a few areas to refine':overall>=50?'Keep working on it':'Focus on the basics';
+  cats.forEach((v,i)=>{ document.getElementById('br'+i).style.width=v+'%'; document.getElementById('brv'+i).textContent=v+'%'; });
+  return overall;
+}
+
+function showTips(yA,pA){
+  const s=SHOTS[currentShot];
+  const items=s.tips.map((t,i)=>({name:t.name,diff:pA[i]-yA[i],tip:t.tip}));
+  const sig=items.filter(t=>Math.abs(t.diff)>12).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).slice(0,3);
+  if(!sig.length) sig.push({name:'Overall',diff:5,tip:()=>'Your mechanics look solid! Focus on consistency and feel.'});
+  document.getElementById('tipsContainer').innerHTML=sig.map((t,i)=>`
+    <div class="tip"><div class="tipnum">${i+1}</div><div class="tipbody"><strong>${t.name}</strong><span>${t.tip(t.diff)}</span></div></div>`).join('');
+  document.getElementById('fpanel').style.display='block';
+}
+
+function setPhase(btn,phase){
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');currentPhase=phase;updateMetrics(phase);
+}
+
+// ══ PROGRESS TRACKER ════════════════════════════════════════════════════════
+function getSessions(){ try{ return JSON.parse(localStorage.getItem('swingcheck_sessions')||'[]'); }catch(e){ return []; } }
+function saveSessions(arr){ localStorage.setItem('swingcheck_sessions',JSON.stringify(arr)); }
+
+function saveSession(){
+  if(!lastAnalysisResult) return;
+  const sessions=getSessions();
+  const s=SHOTS[currentShot];
+  sessions.push({
+    id:Date.now(),
+    shot:currentShot,
+    shotLabel:s.label,
+    overall:lastAnalysisResult.overall,
+    metrics:lastAnalysisResult.yBase,
+    proMetrics:lastAnalysisResult.pBase,
+    date:lastAnalysisResult.date
+  });
+  saveSessions(sessions);
+  document.getElementById('saveBtn').textContent='✓ Saved!';
+  document.getElementById('saveBtn').disabled=true;
+  setTimeout(()=>{ document.getElementById('saveBtn').textContent='💾 Save to Progress Tracker'; document.getElementById('saveBtn').disabled=false; },2000);
+}
+
+function deleteSession(id){
+  const sessions=getSessions().filter(s=>s.id!==id);
+  saveSessions(sessions);
+  renderProgress();
+}
+
+function clearAll(){
+  if(confirm('Clear all saved sessions?')){ localStorage.removeItem('swingcheck_sessions'); renderProgress(); }
+}
+
+function renderProgress(){
+  const sessions=getSessions();
+  const container=document.getElementById('progressContent');
+
+  if(sessions.length===0){
+    container.innerHTML=`
+      <div class="progress-empty">
+        <div class="progress-empty-icon">📊</div>
+        <h3>No sessions saved yet</h3>
+        <p>Analyze a swing and hit "Save to Progress Tracker" to start tracking your improvement over time.</p>
+      </div>`;
+    return;
+  }
+
+  // Stats
+  const allScores=sessions.map(s=>s.overall);
+  const best=Math.max(...allScores);
+  const avg=Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length);
+  const latest=allScores[allScores.length-1];
+  const trend=allScores.length>1?latest-allScores[allScores.length-2]:0;
+
+  const shotCounts={};
+  sessions.forEach(s=>{ shotCounts[s.shot]=(shotCounts[s.shot]||0)+1; });
+  const topShot=Object.entries(shotCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  container.innerHTML=`
+    <div class="progress-stats">
+      <div class="pstat"><div class="pstat-num">${sessions.length}</div><div class="pstat-label">Sessions saved</div></div>
+      <div class="pstat"><div class="pstat-num">${best}%</div><div class="pstat-label">Best score</div></div>
+      <div class="pstat"><div class="pstat-num">${avg}%</div><div class="pstat-label">Average score</div></div>
+      <div class="pstat"><div class="pstat-num">${trend>=0?'+':''}${trend}%</div><div class="pstat-label">vs last session</div></div>
+    </div>
+
+    ${sessions.length>=2?`
+    <div class="progress-chart-panel">
+      <div class="progress-chart-title">Score over time</div>
+      <div style="position:relative;height:180px"><canvas id="progressChart"></canvas></div>
+    </div>`:''}
+
+    <div class="session-grid">
+      ${sessions.slice().reverse().map(sess=>{
+        const s=SHOTS[sess.shot];
+        const d=new Date(sess.date);
+        const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        return `
+          <div class="session-card">
+            <div class="session-top">
+              <div>
+                <div class="session-shot">${s.emoji} ${sess.shotLabel}</div>
+                <div class="session-date">${dateStr}</div>
+              </div>
+              <div class="session-score">${sess.overall}%</div>
+            </div>
+            <div class="session-bars">
+              ${s.metrics.map((m,i)=>{
+                const pct=Math.min(100,Math.round((sess.metrics[i]||0)/(s.maxA[i])*100));
+                return `<div class="session-bar-row"><span class="session-bar-label">${m}</span><div class="session-bar-bg"><div class="session-bar-fill" style="width:${pct}%"></div></div><span class="session-bar-val">${sess.metrics[i]||0}°</span></div>`;
+              }).join('')}
+            </div>
+            <span class="session-delete" onclick="deleteSession(${sess.id})">Remove</span>
+          </div>`;
+      }).join('')}
+    </div>
+    <button class="clear-btn" onclick="clearAll()">Clear all sessions</button>
+  `;
+
+  // Build progress chart
+  if(sessions.length>=2){
+    setTimeout(()=>{
+      const canvas=document.getElementById('progressChart');
+      if(!canvas) return;
+      new Chart(canvas,{
+        type:'line',
+        data:{
+          labels:sessions.map((_,i)=>`#${i+1}`),
+          datasets:[{
+            data:sessions.map(s=>s.overall),
+            borderColor:'#8aaa1a',backgroundColor:'rgba(138,170,26,.1)',
+            tension:.4,pointRadius:5,pointBackgroundColor:'#8aaa1a',fill:true
+          }]
+        },
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+          scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11}}},
+                  y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11},callback:v=>v+'%'},min:0,max:100}}}
+      });
+    },50);
+  }
+}
+
+// ══ RESET ═══════════════════════════════════════════════════════════════════
+function resetAnalyzer(){
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  poseWorkers={you:null,pro:null};
+  ['you','pro'].forEach(w=>{
+    const v=document.getElementById('vid-'+w);
+    v.pause();v.src='';v.style.display='none';
+    document.getElementById('lbl-'+w).style.display='';
+    document.getElementById('name-'+w).style.display='none';
+    document.getElementById('inp-'+w).value='';
+    const c=document.getElementById('cv-'+w);
+    c.getContext('2d').clearRect(0,0,c.width,c.height);
+    document.getElementById('badge-'+w).className='pose-badge';
+    document.getElementById('clear-'+w).classList.remove('visible');
+    document.getElementById('scrub'+w.charAt(0).toUpperCase()+w.slice(1)).value=0;
+    loaded[w]=false;
+  });
+  analyzed=false;isPlaying=false;liveAngles={you:[0,0,0,0],pro:[0,0,0,0]};collectingAngles=false;
+  lastAnalysisResult=null;
+  document.getElementById('playBtn').textContent='▶ Play';
+  document.getElementById('fpanel').style.display='none';
+  document.getElementById('scoreNum').textContent='—';
+  document.getElementById('scoreSub').textContent='Analyze to see score';
+  document.getElementById('scoreRing').style.strokeDashoffset='182.2';
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('saveBtn').textContent='💾 Save to Progress Tracker';
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('analyzeBtn').textContent='Analyze';
+  document.getElementById('statusMsg').textContent='Upload both videos to begin';
+  document.getElementById('timeDisplay').textContent='0.00s / 0.00s';
+  buildMetricCards();buildScoreBreakdown();
+  ['lly','llp'].forEach(p=>[0,1,2,3].forEach(i=>{ const el=document.getElementById(p+i); if(el) el.textContent='—'; }));
+  if(chartInst){chartInst.destroy();chartInst=null;}
+}
+
+// ══ INIT ════════════════════════════════════════════════════════════════════
+setup('you');
+setup('pro');
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.getElementById('infoModalBg').classList.remove('open'); });
+</script>
+</body>
+</html>
