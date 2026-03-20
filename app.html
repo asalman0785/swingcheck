@@ -133,7 +133,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
 .pbtn.active{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
 
 /* metrics */
-.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;transition:grid-template-columns .2s}
 .mcard{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px}
 .mname{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 .mvals{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
@@ -588,11 +588,10 @@ function buildPhaseButtons(){
 
 function buildMetricCards(){
   const s=SHOTS[currentShot];
-  const isServe=s.serveMode;
-  const units=isServe?['°','°','°']:['°','°','°','°'];
-  const cols=isServe?'repeat(3,1fr)':'repeat(4,1fr)';
-  document.getElementById('metricCards').style.gridTemplateColumns=cols;
-  document.getElementById('metricCards').innerHTML=s.metrics.map((m,i)=>`
+  const n=s.metrics.length;
+  const grid=document.getElementById('metricCards');
+  grid.style.gridTemplateColumns=`repeat(${n},1fr)`;
+  grid.innerHTML=s.metrics.map((m,i)=>`
     <div class="mcard">
       <div class="mname">${m}</div>
       <div class="mvals"><span class="myou" id="m${i}y">—</span><span class="mpro" id="m${i}p">/ —</span></div>
