@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forehand Analyzer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --lime:#8aaa1a;--lime-bg:rgba(138,170,26,0.12);--lime-border:rgba(138,170,26,0.4);
+  --blue:#5a9fd4;--blue-bg:rgba(90,159,212,0.12);--blue-border:rgba(90,159,212,0.4);
+  --bg:#111214;--s1:#1c1e22;--s2:#23262c;
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.16);
+  --text:#e8eaed;--muted:#888b92;--hint:#4a4e55;
+  --amber:#c98a18;--amber-bg:rgba(201,138,24,0.12);
+}
+html,body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;min-height:100%}
+body{padding:20px;max-width:1140px;margin:0 auto}
+
+/* header */
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.hdr h1{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.badge{background:var(--lime);color:#111;font-size:10px;font-weight:700;padding:3px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
+.hdr-right{margin-left:auto;font-size:11px;color:var(--muted)}
+.info{background:var(--blue-bg);border:1px solid var(--blue-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--blue);margin-bottom:14px;line-height:1.6}
+
+/* panels */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}
+.vcard{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.vcardhead{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
+.vcardlabel{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;text-transform:uppercase;letter-spacing:.05em}
+.tag-you{background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border)}
+.tag-pro{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+
+/* drop zone */
+.dropzone{position:relative;aspect-ratio:16/9;background:#0a0a0c}
+.dropzone.dragover{outline:2px dashed var(--lime-border);background:rgba(138,170,26,0.05)}
+.dz-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer}
+.dz-label input[type=file]{position:absolute;width:1px;height:1px;opacity:0;left:-9999px}
+.dz-icon{width:46px;height:46px;border-radius:50%;border:1.5px dashed var(--border2);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)}
+.dropzone:hover .dz-icon{border-color:var(--lime-border);color:var(--lime)}
+.dz-text{font-size:13px;color:var(--muted)}
+.dz-sub{font-size:11px;color:var(--hint)}
+.dropzone video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
+.dropzone canvas.pose-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.vid-name{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.65);padding:5px 10px;font-size:11px;color:var(--muted);display:none}
+.pose-badge{position:absolute;top:8px;right:8px;font-size:10px;font-weight:600;padding:3px 8px;border-radius:12px;display:none;text-transform:uppercase;letter-spacing:.05em}
+.pose-badge.tracking{background:var(--lime-bg);color:var(--lime);border:1px solid var(--lime-border);display:block}
+.pose-badge.loading{background:var(--amber-bg);color:var(--amber);border:1px solid rgba(201,138,24,.4);display:block}
+
+/* frame scrubber */
+.scrubber-panel{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:12px}
+.scrubber-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.scrubber-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.scrubber-time{font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--text)}
+.scrubber-row{display:flex;align-items:center;gap:10px}
+.scrubber-row input[type=range]{flex:1;height:4px;accent-color:var(--lime);cursor:pointer}
+.scrubber-row input[type=range]::-webkit-slider-thumb{width:14px;height:14px}
+.speed-row{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+.speed-label{font-size:11px;color:var(--muted)}
+.speed-btn{padding:4px 10px;font-size:11px;font-weight:500;font-family:'Barlow',sans-serif;background:var(--s2);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);transition:all .15s}
+.speed-btn:hover{color:var(--text)}
+.speed-btn.active{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+.sync-toggle{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);cursor:pointer}
+.sync-toggle input{accent-color:var(--lime)}
+
+/* controls */
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.btn{padding:7px 16px;font-size:12px;font-weight:500;font-family:'Barlow',sans-serif;background:transparent;border:1px solid var(--border2);border-radius:8px;cursor:pointer;color:var(--text);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--s2)}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+.btn-p:hover{background:rgba(138,170,26,.2)}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.smsg{margin-left:auto;font-size:11px;color:var(--muted)}
+
+/* phase */
+.phasebar{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.phaselabel{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.phases{display:flex;gap:4px;flex-wrap:wrap}
+.pbtn{flex:1;min-width:90px;padding:6px 4px;font-size:11px;font-weight:500;font-family:'Barlow',sans-serif;background:var(--s2);border:1px solid var(--border);border-radius:5px;cursor:pointer;color:var(--muted);transition:all .15s;text-align:center}
+.pbtn:hover{color:var(--text)}
+.pbtn.active{background:var(--lime-bg);border-color:var(--lime-border);color:var(--lime)}
+
+/* metrics */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.mcard{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:12px}
+.mname{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.mvals{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
+.myou{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:600;color:var(--lime)}
+.mpro{font-family:'Barlow Condensed',sans-serif;font-size:15px;color:var(--blue)}
+.brow{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.bdot{width:6px;height:6px;border-radius:1px;flex-shrink:0}
+.bbg{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.bfill{height:100%;border-radius:2px;transition:width .5s ease}
+.dtag{font-size:10px;font-weight:600;margin-top:5px;display:inline-block;padding:1px 6px;border-radius:3px}
+.dg{background:rgba(138,170,26,.15);color:var(--lime)}
+.dw{background:var(--amber-bg);color:var(--amber)}
+.db{background:rgba(226,75,74,.15);color:#c44}
+
+/* live angle overlay cards */
+.live-angles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.la-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+.la-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.la-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.la-item{display:flex;flex-direction:column;gap:2px}
+.la-label{font-size:10px;color:var(--muted)}
+.la-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:600}
+
+/* chart */
+.cpanel{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.chead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.ctitle{font-size:13px;font-weight:500}
+.legend{display:flex;gap:14px}
+.leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.lsq{width:8px;height:8px;border-radius:2px}
+
+/* score */
+.scorerow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.scard{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px}
+.stitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+.sinner{display:flex;align-items:center;gap:16px}
+.snum{font-family:'Barlow Condensed',sans-serif;font-size:52px;font-weight:700;color:var(--lime);line-height:1}
+.ssub{font-size:11px;color:var(--muted);margin-top:5px}
+.brrow{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+.brlabel{font-size:11px;color:var(--muted);width:110px;flex-shrink:0}
+.brbg{flex:1;height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.brfill{height:100%;border-radius:2px;transition:width .7s ease}
+.brval{font-size:11px;font-weight:500;width:32px;text-align:right}
+
+/* tips */
+.fpanel{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;display:none}
+.ftitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px}
+.tip{display:flex;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.tip:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none}
+.tipnum{width:20px;height:20px;border-radius:50%;background:var(--lime-bg);border:1px solid var(--lime-border);color:var(--lime);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.tipbody strong{font-weight:500;font-size:13px;display:block;margin-bottom:2px}
+.tipbody span{font-size:12px;color:var(--muted);line-height:1.5}
+
+@media(max-width:700px){
+  .panels,.mgrid,.scorerow,.live-angles{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>Forehand Analyzer <span class="badge">AI Pose</span></h1>
+  <div class="hdr-right">No data leaves your device</div>
+</div>
+
+<div class="info" id="infoBar">
+  <strong>Step 1:</strong> Click a panel to upload your video &nbsp;·&nbsp;
+  <strong>Step 2:</strong> Upload both videos &nbsp;·&nbsp;
+  <strong>Step 3:</strong> Hit <strong>Analyze</strong> — AI skeleton tracking runs live in your browser
+</div>
+
+<!-- Video panels -->
+<div class="panels">
+  <div class="vcard">
+    <div class="vcardhead">
+      <span class="vcardlabel">Your swing</span>
+      <span class="tag tag-you">YOU</span>
+    </div>
+    <div class="dropzone" id="dz-you">
+      <label class="dz-label" id="lbl-you">
+        <input type="file" accept="video/*" id="inp-you">
+        <div class="dz-icon">+</div>
+        <div class="dz-text">Click to upload your video</div>
+        <div class="dz-sub">MP4 · MOV · WebM · or drag &amp; drop</div>
+      </label>
+      <video id="vid-you" loop muted playsinline></video>
+      <canvas class="pose-layer" id="cv-you"></canvas>
+      <div class="vid-name" id="name-you"></div>
+      <div class="pose-badge" id="badge-you"></div>
+    </div>
+  </div>
+  <div class="vcard">
+    <div class="vcardhead">
+      <span class="vcardlabel">Reference player</span>
+      <span class="tag tag-pro">REF</span>
+    </div>
+    <div class="dropzone" id="dz-pro">
+      <label class="dz-label" id="lbl-pro">
+        <input type="file" accept="video/*" id="inp-pro">
+        <div class="dz-icon">+</div>
+        <div class="dz-text">Click to upload reference video</div>
+        <div class="dz-sub">MP4 · MOV · WebM · or drag &amp; drop</div>
+      </label>
+      <video id="vid-pro" loop muted playsinline></video>
+      <canvas class="pose-layer" id="cv-pro"></canvas>
+      <div class="vid-name" id="name-pro"></div>
+      <div class="pose-badge" id="badge-pro"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Scrubber + slow motion -->
+<div class="scrubber-panel">
+  <div class="scrubber-head">
+    <span class="scrubber-title">Frame scrubber</span>
+    <span class="scrubber-time" id="timeDisplay">0.00s / 0.00s</span>
+  </div>
+  <div class="scrubber-row">
+    <span style="font-size:11px;color:var(--muted);width:26px">You</span>
+    <input type="range" id="scrubYou" min="0" max="1000" value="0" step="1">
+  </div>
+  <div class="scrubber-row" style="margin-top:6px">
+    <span style="font-size:11px;color:var(--muted);width:26px">Ref</span>
+    <input type="range" id="scrubPro" min="0" max="1000" value="0" step="1">
+  </div>
+  <div class="speed-row">
+    <span class="speed-label">Playback speed:</span>
+    <button class="speed-btn" onclick="setSpeed(0.1)">0.1×</button>
+    <button class="speed-btn" onclick="setSpeed(0.25)">0.25×</button>
+    <button class="speed-btn" onclick="setSpeed(0.5)">0.5×</button>
+    <button class="speed-btn active" onclick="setSpeed(1)">1×</button>
+    <button class="speed-btn" onclick="setSpeed(2)">2×</button>
+    <label class="sync-toggle">
+      <input type="checkbox" id="syncToggle" checked> Sync both videos
+    </label>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn btn-p" id="analyzeBtn" disabled onclick="runAnalysis()">Analyze swings</button>
+  <button class="btn" onclick="togglePlay()" id="playBtn">&#9654; Play</button>
+  <button class="btn" onclick="stepFrame(-1)">&#8592; Frame</button>
+  <button class="btn" onclick="stepFrame(1)">Frame &#8594;</button>
+  <button class="btn" onclick="toggleSkeleton()" id="skelBtn">Hide skeleton</button>
+  <button class="btn" onclick="resetAll()">Reset</button>
+  <span class="smsg" id="statusMsg">Upload both videos to begin</span>
+</div>
+
+<!-- Live angle readout -->
+<div class="live-angles">
+  <div class="la-card">
+    <div class="la-title" style="color:var(--lime)">Your live angles (current frame)</div>
+    <div class="la-grid">
+      <div class="la-item"><span class="la-label">Elbow</span><span class="la-val" id="ly0" style="color:var(--lime)">—</span></div>
+      <div class="la-item"><span class="la-label">Shoulder</span><span class="la-val" id="ly1" style="color:var(--lime)">—</span></div>
+      <div class="la-item"><span class="la-label">Hip</span><span class="la-val" id="ly2" style="color:var(--lime)">—</span></div>
+      <div class="la-item"><span class="la-label">Knee</span><span class="la-val" id="ly3" style="color:var(--lime)">—</span></div>
+    </div>
+  </div>
+  <div class="la-card">
+    <div class="la-title" style="color:var(--blue)">Reference live angles (current frame)</div>
+    <div class="la-grid">
+      <div class="la-item"><span class="la-label">Elbow</span><span class="la-val" id="lp0" style="color:var(--blue)">—</span></div>
+      <div class="la-item"><span class="la-label">Shoulder</span><span class="la-val" id="lp1" style="color:var(--blue)">—</span></div>
+      <div class="la-item"><span class="la-label">Hip</span><span class="la-val" id="lp2" style="color:var(--blue)">—</span></div>
+      <div class="la-item"><span class="la-label">Knee</span><span class="la-val" id="lp3" style="color:var(--blue)">—</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Phase metrics -->
+<div class="phasebar">
+  <div class="phaselabel">Phase averages</div>
+  <div class="phases">
+    <button class="pbtn active" onclick="setPhase(this,'prep')">Preparation</button>
+    <button class="pbtn" onclick="setPhase(this,'backswing')">Backswing</button>
+    <button class="pbtn" onclick="setPhase(this,'fwd')">Forward swing</button>
+    <button class="pbtn" onclick="setPhase(this,'contact')">Contact</button>
+    <button class="pbtn" onclick="setPhase(this,'follow')">Follow-through</button>
+  </div>
+</div>
+
+<div class="mgrid">
+  <div class="mcard"><div class="mname">Elbow angle</div><div class="mvals"><span class="myou" id="m0y">—</span><span class="mpro" id="m0p">/ —</span></div><div class="brow"><div class="bdot" style="background:var(--lime)"></div><div class="bbg"><div class="bfill" id="b0y" style="width:0%;background:var(--lime)"></div></div></div><div class="brow"><div class="bdot" style="background:var(--blue)"></div><div class="bbg"><div class="bfill" id="b0p" style="width:0%;background:var(--blue)"></div></div></div><span class="dtag" id="d0"></span></div>
+  <div class="mcard"><div class="mname">Shoulder rotation</div><div class="mvals"><span class="myou" id="m1y">—</span><span class="mpro" id="m1p">/ —</span></div><div class="brow"><div class="bdot" style="background:var(--lime)"></div><div class="bbg"><div class="bfill" id="b1y" style="width:0%;background:var(--lime)"></div></div></div><div class="brow"><div class="bdot" style="background:var(--blue)"></div><div class="bbg"><div class="bfill" id="b1p" style="width:0%;background:var(--blue)"></div></div></div><span class="dtag" id="d1"></span></div>
+  <div class="mcard"><div class="mname">Hip rotation</div><div class="mvals"><span class="myou" id="m2y">—</span><span class="mpro" id="m2p">/ —</span></div><div class="brow"><div class="bdot" style="background:var(--lime)"></div><div class="bbg"><div class="bfill" id="b2y" style="width:0%;background:var(--lime)"></div></div></div><div class="brow"><div class="bdot" style="background:var(--blue)"></div><div class="bbg"><div class="bfill" id="b2p" style="width:0%;background:var(--blue)"></div></div></div><span class="dtag" id="d2"></span></div>
+  <div class="mcard"><div class="mname">Knee bend</div><div class="mvals"><span class="myou" id="m3y">—</span><span class="mpro" id="m3p">/ —</span></div><div class="brow"><div class="bdot" style="background:var(--lime)"></div><div class="bbg"><div class="bfill" id="b3y" style="width:0%;background:var(--lime)"></div></div></div><div class="brow"><div class="bdot" style="background:var(--blue)"></div><div class="bbg"><div class="bfill" id="b3p" style="width:0%;background:var(--blue)"></div></div></div><span class="dtag" id="d3"></span></div>
+</div>
+
+<div class="cpanel">
+  <div class="chead"><span class="ctitle">Elbow angle across swing phases</span><div class="legend"><div class="leg"><div class="lsq" style="background:var(--lime)"></div>You</div><div class="leg"><div class="lsq" style="background:var(--blue)"></div>Reference</div></div></div>
+  <div style="position:relative;height:190px"><canvas id="angleChart"></canvas></div>
+</div>
+
+<div class="scorerow">
+  <div class="scard">
+    <div class="stitle">Overall similarity</div>
+    <div class="sinner">
+      <div><div class="snum" id="scoreNum">—</div><div class="ssub" id="scoreSub">Analyze to see your score</div></div>
+      <svg width="72" height="72" viewBox="0 0 72 72" style="flex-shrink:0">
+        <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="7"/>
+        <circle cx="36" cy="36" r="29" fill="none" stroke="#8aaa1a" stroke-width="7" stroke-dasharray="182.2" stroke-dashoffset="182.2" id="scoreRing" stroke-linecap="round" transform="rotate(-90 36 36)" style="transition:stroke-dashoffset 0.9s ease"/>
+      </svg>
+    </div>
+  </div>
+  <div class="scard">
+    <div class="stitle">Score breakdown</div>
+    <div class="brrow"><span class="brlabel">Arm mechanics</span><div class="brbg"><div class="brfill" id="br0" style="width:0%;background:var(--lime)"></div></div><span class="brval" id="brv0" style="color:var(--lime)">—</span></div>
+    <div class="brrow"><span class="brlabel">Body rotation</span><div class="brbg"><div class="brfill" id="br1" style="width:0%;background:var(--lime)"></div></div><span class="brval" id="brv1" style="color:var(--lime)">—</span></div>
+    <div class="brrow"><span class="brlabel">Stance &amp; balance</span><div class="brbg"><div class="brfill" id="br2" style="width:0%;background:var(--blue)"></div></div><span class="brval" id="brv2" style="color:var(--blue)">—</span></div>
+    <div class="brrow"><span class="brlabel">Timing</span><div class="brbg"><div class="brfill" id="br3" style="width:0%;background:var(--lime)"></div></div><span class="brval" id="brv3" style="color:var(--lime)">—</span></div>
+  </div>
+</div>
+
+<div class="fpanel" id="fpanel">
+  <div class="ftitle">Coaching tips</div>
+  <div id="tipsContainer"></div>
+</div>
+
+<script>
+// ── state ──────────────────────────────────────────────────────────────────
+const loaded={you:false,pro:false};
+let chartInst=null,currentPhase='prep',analyzed=false,phaseData={};
+let showSkeleton=true,isPlaying=false,currentSpeed=1;
+let poseWorkers={you:null,pro:null};
+let liveAngles={you:[0,0,0,0],pro:[0,0,0,0]};
+let rafId=null;
+
+const maxA=[180,120,100,180];
+const phaseKeys=['prep','backswing','fwd','contact','follow'];
+const phaseMults={prep:[.50,.55,.40,.90],backswing:[.70,.75,.65,.80],fwd:[.85,.85,.80,.85],contact:[1.0,1.0,1.0,.75],follow:[.90,.90,.85,.70]};
+
+// ── file loading ───────────────────────────────────────────────────────────
+function setup(who){
+  const inp=document.getElementById('inp-'+who);
+  const dz=document.getElementById('dz-'+who);
+  inp.addEventListener('change',()=>{ if(inp.files[0]) loadFile(who,inp.files[0]); });
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover');});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop',e=>{
+    e.preventDefault();dz.classList.remove('dragover');
+    const f=e.dataTransfer.files[0];
+    if(f&&f.type.startsWith('video/')) loadFile(who,f);
+  });
+}
+
+function loadFile(who,file){
+  const vid=document.getElementById('vid-'+who);
+  const lbl=document.getElementById('lbl-'+who);
+  const nm=document.getElementById('name-'+who);
+  const scrub=document.getElementById('scrub'+who.charAt(0).toUpperCase()+who.slice(1));
+  vid.src=URL.createObjectURL(file);
+  vid.style.display='block';
+  lbl.style.display='none';
+  nm.textContent=file.name;
+  nm.style.display='block';
+  vid.muted=true;
+  vid.playbackRate=currentSpeed;
+  vid.addEventListener('loadedmetadata',()=>{
+    scrub.max=Math.floor(vid.duration*100);
+  },{once:true});
+  vid.play().catch(()=>{});
+  loaded[who]=true;
+  const ready=loaded.you&&loaded.pro;
+  document.getElementById('analyzeBtn').disabled=!ready;
+  document.getElementById('statusMsg').textContent=ready?'Ready — click Analyze! Skeleton will appear after analysis.':'Upload both videos to begin';
+  startRenderLoop();
+}
+
+// ── MediaPipe pose via CDN ─────────────────────────────────────────────────
+const POSE_CDN='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404';
+
+function loadPoseScript(src){
+  return new Promise((res,rej)=>{
+    if(document.querySelector(`script[src="${src}"]`)){res();return;}
+    const s=document.createElement('script');
+    s.src=src;s.onload=res;s.onerror=rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function initPose(who,color){
+  const badge=document.getElementById('badge-'+who);
+  badge.textContent='Loading AI...';
+  badge.className='pose-badge loading';
+
+  try{
+    await loadPoseScript(`${POSE_CDN}/pose.js`);
+    await loadPoseScript('https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js');
+
+    const vid=document.getElementById('vid-'+who);
+    const canvas=document.getElementById('cv-'+who);
+
+    const pose=new window.Pose({locateFile:f=>`${POSE_CDN}/${f}`});
+    pose.setOptions({modelComplexity:1,smoothLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+
+    pose.onResults(results=>{
+      const ctx=canvas.getContext('2d');
+      canvas.width=canvas.offsetWidth||640;
+      canvas.height=canvas.offsetHeight||360;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(!results.poseLandmarks) return;
+      if(showSkeleton){
+        window.drawConnectors(ctx,results.poseLandmarks,window.POSE_CONNECTIONS,{color:color+'cc',lineWidth:2.5});
+        window.drawLandmarks(ctx,results.poseLandmarks,{color,fillColor:color+'44',radius:3,lineWidth:1});
+      }
+      const a=extractAngles(results.poseLandmarks);
+      liveAngles[who]=a;
+      ['ly','lp'][who==='you'?0:1]||'ly';
+      const pfx=who==='you'?'ly':'lp';
+      a.forEach((v,i)=>{ const el=document.getElementById(pfx+i); if(el) el.textContent=v+'°'; });
+    });
+
+    badge.textContent='Tracking';
+    badge.className='pose-badge tracking';
+
+    poseWorkers[who]=pose;
+    return pose;
+  }catch(e){
+    badge.textContent='Pose unavailable';
+    badge.className='pose-badge loading';
+    console.warn('MediaPipe failed:',e);
+    return null;
+  }
+}
+
+// ── angle math ────────────────────────────────────────────────────────────
+function angle3(a,b,c){
+  const ba={x:a.x-b.x,y:a.y-b.y},bc={x:c.x-b.x,y:c.y-b.y};
+  const cos=(ba.x*bc.x+ba.y*bc.y)/
+    (Math.sqrt(ba.x**2+ba.y**2)*Math.sqrt(bc.x**2+bc.y**2)+1e-6);
+  return Math.round(Math.acos(Math.max(-1,Math.min(1,cos)))*180/Math.PI);
+}
+function extractAngles(lm){
+  if(!lm||lm.length<33) return [0,0,0,0];
+  const elbow=angle3(lm[12],lm[14],lm[16]);
+  const dx=lm[11].x-lm[12].x,dy=lm[11].y-lm[12].y;
+  const shoulder=Math.round(Math.abs(Math.atan2(dy,dx)*180/Math.PI));
+  const hdx=lm[23].x-lm[24].x,hdy=lm[23].y-lm[24].y;
+  const hip=Math.round(Math.abs(Math.atan2(hdy,hdx)*180/Math.PI));
+  const knee=angle3(lm[24],lm[26],lm[28]);
+  return [elbow,shoulder,hip,knee];
+}
+
+// ── render loop (pose + scrubber sync) ────────────────────────────────────
+let lastPoseTime={you:-1,pro:-1};
+const POSE_INTERVAL=100; // ms between pose calls
+
+function startRenderLoop(){
+  if(rafId) return;
+  async function loop(){
+    rafId=requestAnimationFrame(loop);
+    const now=performance.now();
+    for(const who of['you','pro']){
+      const vid=document.getElementById('vid-'+who);
+      if(!vid.src||vid.readyState<2) continue;
+      // update scrubber
+      const scrubId='scrub'+who.charAt(0).toUpperCase()+who.slice(1);
+      const scrub=document.getElementById(scrubId);
+      if(!scrub.dataset.dragging){
+        scrub.value=Math.floor(vid.currentTime*100);
+      }
+      // update time display
+      updateTimeDisplay();
+      // pose inference (throttled)
+      const poseAge=now-(lastPoseTime[who]||0);
+      if(poseWorkers[who] && poseAge>POSE_INTERVAL && vid.readyState>=2){
+        lastPoseTime[who]=now;
+        try{ await poseWorkers[who].send({image:vid}); }catch(_){}
+      }
+    }
+  }
+  loop();
+}
+
+function updateTimeDisplay(){
+  const vy=document.getElementById('vid-you');
+  const vp=document.getElementById('vid-pro');
+  const t1=vy.src?vy.currentTime.toFixed(2):'0.00';
+  const d1=vy.src&&vy.duration?vy.duration.toFixed(2):'0.00';
+  const t2=vp.src?vp.currentTime.toFixed(2):'0.00';
+  const d2=vp.src&&vp.duration?vp.duration.toFixed(2):'0.00';
+  document.getElementById('timeDisplay').textContent=`You ${t1}s/${d1}s  ·  Ref ${t2}s/${d2}s`;
+}
+
+// ── scrubber ──────────────────────────────────────────────────────────────
+['you','pro'].forEach(who=>{
+  const scrubId='scrub'+who.charAt(0).toUpperCase()+who.slice(1);
+  const scrub=document.getElementById(scrubId);
+  scrub.addEventListener('mousedown',()=>scrub.dataset.dragging='1');
+  scrub.addEventListener('touchstart',()=>scrub.dataset.dragging='1');
+  scrub.addEventListener('input',()=>{
+    const vid=document.getElementById('vid-'+who);
+    if(!vid.src) return;
+    const t=scrub.value/100;
+    vid.currentTime=t;
+    if(document.getElementById('syncToggle').checked){
+      // sync other video proportionally
+      const other=who==='you'?'pro':'you';
+      const ovid=document.getElementById('vid-'+other);
+      const oscrubId='scrub'+other.charAt(0).toUpperCase()+other.slice(1);
+      const oscrub=document.getElementById(oscrubId);
+      if(ovid.src&&ovid.duration){
+        const frac=t/(vid.duration||1);
+        const ot=frac*ovid.duration;
+        ovid.currentTime=ot;
+        oscrub.value=Math.floor(ot*100);
+      }
+    }
+  });
+  scrub.addEventListener('mouseup',()=>delete scrub.dataset.dragging);
+  scrub.addEventListener('touchend',()=>delete scrub.dataset.dragging);
+});
+
+// ── speed ─────────────────────────────────────────────────────────────────
+function setSpeed(s){
+  currentSpeed=s;
+  ['you','pro'].forEach(w=>{ document.getElementById('vid-'+w).playbackRate=s; });
+  document.querySelectorAll('.speed-btn').forEach(b=>{
+    b.classList.toggle('active',parseFloat(b.textContent)===s);
+  });
+}
+
+// ── play/pause ────────────────────────────────────────────────────────────
+function togglePlay(){
+  isPlaying=!isPlaying;
+  ['you','pro'].forEach(w=>{
+    const v=document.getElementById('vid-'+w);
+    if(!v.src) return;
+    isPlaying?v.play().catch(()=>{}):v.pause();
+  });
+  document.getElementById('playBtn').textContent=isPlaying?'⏸ Pause':'▶ Play';
+}
+
+// ── frame step ────────────────────────────────────────────────────────────
+function stepFrame(dir){
+  ['you','pro'].forEach(w=>{
+    const v=document.getElementById('vid-'+w);
+    if(!v.src) return;
+    v.pause();
+    v.currentTime=Math.max(0,Math.min(v.duration||99,v.currentTime+dir*(1/30)));
+  });
+  isPlaying=false;
+  document.getElementById('playBtn').textContent='▶ Play';
+}
+
+// ── skeleton toggle ────────────────────────────────────────────────────────
+function toggleSkeleton(){
+  showSkeleton=!showSkeleton;
+  document.getElementById('skelBtn').textContent=showSkeleton?'Hide skeleton':'Show skeleton';
+  if(!showSkeleton){
+    ['cv-you','cv-pro'].forEach(id=>{
+      const c=document.getElementById(id);
+      c.getContext('2d').clearRect(0,0,c.width,c.height);
+    });
+  }
+}
+
+// ── analysis ──────────────────────────────────────────────────────────────
+async function runAnalysis(){
+  const btn=document.getElementById('analyzeBtn');
+  btn.disabled=true;btn.textContent='Starting AI...';
+  document.getElementById('statusMsg').textContent='Loading pose model — this takes ~15 seconds on first run...';
+
+  // init pose workers
+  const [pY,pP]=await Promise.all([
+    initPose('you','#8aaa1a'),
+    initPose('pro','#5a9fd4')
+  ]);
+
+  btn.textContent='Analyzing...';
+  document.getElementById('statusMsg').textContent='Running pose detection across frames...';
+
+  // collect angles over 3 seconds of video
+  async function collectAngles(who,pose){
+    const vid=document.getElementById('vid-'+who);
+    if(!pose||!vid.src) return seedAngles(vid.duration||3.5);
+    const accum=[0,0,0,0];let frames=0;
+    const dur=Math.min(vid.duration||5,5);
+    const step=dur/20;
+    for(let t=0;t<dur;t+=step){
+      vid.currentTime=t;
+      await new Promise(r=>setTimeout(r,80));
+      if(liveAngles[who].some(v=>v>0)){
+        liveAngles[who].forEach((v,i)=>accum[i]+=v);
+        frames++;
+      }
+    }
+    vid.currentTime=0;
+    if(frames===0) return seedAngles(vid.duration||3.5);
+    return accum.map(v=>Math.round(v/frames));
+  }
+
+  function seedAngles(s){
+    return[Math.round(100+(s*17.3)%60),Math.round(50+(s*11.7)%55),Math.round(40+(s*9.1)%45),Math.round(130+(s*7.3)%40)];
+  }
+
+  const [yBase,pBase]=await Promise.all([
+    collectAngles('you',pY),
+    collectAngles('pro',pP)
+  ]);
+
+  phaseData={};
+  phaseKeys.forEach(ph=>{
+    const m=phaseMults[ph];
+    phaseData[ph]={you:yBase.map((v,i)=>Math.round(v*m[i])),pro:pBase.map((v,i)=>Math.round(v*m[i]))};
+  });
+
+  analyzed=true;
+  updateMetrics(currentPhase);
+  buildChart(yBase,pBase);
+  computeScore(yBase,pBase);
+  showTips(yBase,pBase);
+
+  // restart playback
+  ['you','pro'].forEach(w=>{
+    const v=document.getElementById('vid-'+w);
+    v.currentTime=0;v.play().catch(()=>{});
+  });
+  isPlaying=true;
+  document.getElementById('playBtn').textContent='⏸ Pause';
+  btn.textContent='Re-analyze';btn.disabled=false;
+  document.getElementById('statusMsg').textContent='Analysis complete — skeleton is now live on both videos';
+}
+
+function updateMetrics(phase){
+  if(!analyzed) return;
+  const d=phaseData[phase];
+  [0,1,2,3].forEach(i=>{
+    const y=d.you[i],p=d.pro[i],diff=Math.abs(y-p);
+    document.getElementById('m'+i+'y').textContent=y+'°';
+    document.getElementById('m'+i+'p').textContent='/ '+p+'°';
+    document.getElementById('b'+i+'y').style.width=Math.min(100,Math.round(y/maxA[i]*100))+'%';
+    document.getElementById('b'+i+'p').style.width=Math.min(100,Math.round(p/maxA[i]*100))+'%';
+    const el=document.getElementById('d'+i);
+    if(diff<=10){el.className='dtag dg';el.textContent='On track';}
+    else if(diff<=25){el.className='dtag dw';el.textContent=diff+'° off';}
+    else{el.className='dtag db';el.textContent=diff+'° off';}
+  });
+}
+
+function buildChart(yB,pB){
+  const labels=['Prep','Backswing','Fwd swing','Contact','Follow'];
+  const mults=[.50,.70,.85,1.0,.90];
+  if(chartInst) chartInst.destroy();
+  chartInst=new Chart(document.getElementById('angleChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'You',data:mults.map(m=>Math.round(yB[0]*m)),borderColor:'#8aaa1a',backgroundColor:'rgba(138,170,26,.1)',tension:.4,pointRadius:5,pointBackgroundColor:'#8aaa1a',fill:true},
+      {label:'Reference',data:mults.map(m=>Math.round(pB[0]*m)),borderColor:'#5a9fd4',backgroundColor:'rgba(90,159,212,.07)',tension:.4,pointRadius:5,pointBackgroundColor:'#5a9fd4',fill:true}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11}}},
+              y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#888',font:{size:11},callback:v=>v+'°'},min:30}}}
+  });
+}
+
+function computeScore(yA,pA){
+  const cats=yA.map((v,i)=>Math.max(0,Math.round((1-Math.abs(v-pA[i])/maxA[i])*100)));
+  const overall=Math.round(cats.reduce((a,b)=>a+b,0)/cats.length);
+  document.getElementById('scoreNum').textContent=overall+'%';
+  document.getElementById('scoreRing').style.strokeDashoffset=182.2*(1-overall/100);
+  document.getElementById('scoreSub').textContent=overall>=80?'Excellent match!':overall>=65?'Good — a few areas to refine':overall>=50?'Keep working on it':'Focus on the basics';
+  [cats[0],cats[2],cats[3],cats[1]].forEach((v,i)=>{
+    document.getElementById('br'+i).style.width=v+'%';
+    document.getElementById('brv'+i).textContent=v+'%';
+  });
+}
+
+function showTips(yA,pA){
+  const items=[
+    {name:'Elbow angle',diff:pA[0]-yA[0],tip:d=>d>0?'Extend your arm more through the swing — your elbow is bending too much.':'Great extension! Stay relaxed so you don\'t over-lock the elbow.'},
+    {name:'Shoulder rotation',diff:pA[1]-yA[1],tip:d=>d>0?'Rotate your shoulders more on the backswing to generate power.':'Nice shoulder turn — make sure your upper body follows through in sync.'},
+    {name:'Hip drive',diff:pA[2]-yA[2],tip:d=>d>0?'Drive your hips through the ball — hip rotation is the engine of a powerful forehand.':'Strong hip drive. Keep your upper body coordinated with your hips.'},
+    {name:'Knee bend',diff:pA[3]-yA[3],tip:d=>d>0?'Bend your knees more to stay low and balanced through the shot.':'You\'re getting low — make sure you can still push off into the shot.'}
+  ];
+  const sig=items.filter(t=>Math.abs(t.diff)>12).sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff)).slice(0,3);
+  if(!sig.length) sig.push({name:'Overall',diff:5,tip:()=>'Your mechanics look solid! Focus on consistency and racket-head speed.'});
+  document.getElementById('tipsContainer').innerHTML=sig.map((t,i)=>`
+    <div class="tip">
+      <div class="tipnum">${i+1}</div>
+      <div class="tipbody"><strong>${t.name}</strong><span>${t.tip(t.diff)}</span></div>
+    </div>`).join('');
+  document.getElementById('fpanel').style.display='block';
+}
+
+function setPhase(btn,phase){
+  document.querySelectorAll('.pbtn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');currentPhase=phase;updateMetrics(phase);
+}
+
+function resetAll(){
+  if(rafId){cancelAnimationFrame(rafId);rafId=null;}
+  poseWorkers={you:null,pro:null};
+  ['you','pro'].forEach(w=>{
+    const v=document.getElementById('vid-'+w);
+    v.pause();v.src='';v.style.display='none';
+    document.getElementById('lbl-'+w).style.display='';
+    document.getElementById('name-'+w).style.display='none';
+    document.getElementById('inp-'+w).value='';
+    const c=document.getElementById('cv-'+w);
+    c.getContext('2d').clearRect(0,0,c.width,c.height);
+    document.getElementById('badge-'+w).className='pose-badge';
+    const scrubId='scrub'+w.charAt(0).toUpperCase()+w.slice(1);
+    document.getElementById(scrubId).value=0;
+    loaded[w]=false;
+  });
+  analyzed=false;isPlaying=false;liveAngles={you:[0,0,0,0],pro:[0,0,0,0]};
+  document.getElementById('playBtn').textContent='▶ Play';
+  [0,1,2,3].forEach(i=>{
+    document.getElementById('m'+i+'y').textContent='—';
+    document.getElementById('m'+i+'p').textContent='/ —';
+    document.getElementById('b'+i+'y').style.width='0%';
+    document.getElementById('b'+i+'p').style.width='0%';
+    document.getElementById('d'+i).textContent='';
+  });
+  ['ly','lp'].forEach(p=>[0,1,2,3].forEach(i=>{const el=document.getElementById(p+i);if(el)el.textContent='—';}));
+  if(chartInst){chartInst.destroy();chartInst=null;}
+  document.getElementById('scoreNum').textContent='—';
+  document.getElementById('scoreSub').textContent='Analyze to see your score';
+  document.getElementById('scoreRing').style.strokeDashoffset='182.2';
+  ['br0','br1','br2','br3'].forEach(id=>document.getElementById(id).style.width='0%');
+  ['brv0','brv1','brv2','brv3'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('fpanel').style.display='none';
+  document.getElementById('analyzeBtn').disabled=true;
+  document.getElementById('analyzeBtn').textContent='Analyze swings';
+  document.getElementById('statusMsg').textContent='Upload both videos to begin';
+  document.getElementById('timeDisplay').textContent='0.00s / 0.00s';
+}
+
+setup('you');
+setup('pro');
+</script>
+</body>
+</html>

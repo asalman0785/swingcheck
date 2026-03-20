@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SwingCheck — AI Tennis Forehand Analyzer</title>
+<meta name="description" content="Upload your forehand video, compare it to any player, and get instant AI coaching. Free. No account needed.">
+<meta property="og:title" content="SwingCheck — AI Tennis Forehand Analyzer">
+<meta property="og:description" content="Upload your forehand video and get instant AI coaching. Free.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --lime:#C8F135;--lime-dark:#8aaa1a;
+  --bg:#0d0f0a;--fg:#f0f2e8;--muted:#7a7d6e;
+  --card:#161810;--border:rgba(200,241,53,0.15);
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:'DM Sans',sans-serif;font-size:16px;overflow-x:hidden}
+
+/* nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.05);backdrop-filter:blur(12px);background:rgba(13,15,10,0.8)}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.08em;color:var(--lime)}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{font-size:13px;color:var(--muted);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--fg)}
+.nav-cta{background:var(--lime);color:#0d0f0a;font-size:13px;font-weight:500;padding:8px 20px;border-radius:4px;text-decoration:none;transition:opacity .2s}
+.nav-cta:hover{opacity:.85;color:#0d0f0a}
+
+/* hero */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:120px 24px 80px;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(200,241,53,0.06) 0%,transparent 70%);pointer-events:none}
+.hero-court{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:800px;height:300px;border-top:1px solid rgba(200,241,53,0.08);border-left:1px solid rgba(200,241,53,0.05);border-right:1px solid rgba(200,241,53,0.05);opacity:.4;pointer-events:none}
+.hero-court::before{content:'';position:absolute;top:0;left:50%;width:1px;height:100%;background:rgba(200,241,53,0.08)}
+.eyebrow{font-size:11px;font-weight:500;letter-spacing:.16em;color:var(--lime-dark);text-transform:uppercase;margin-bottom:20px;opacity:0;animation:fadeUp .6s .1s forwards}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(72px,14vw,160px);line-height:.92;letter-spacing:.02em;margin-bottom:24px;opacity:0;animation:fadeUp .6s .25s forwards}
+.hero h1 span{color:var(--lime)}
+.hero-sub{font-size:clamp(16px,2vw,20px);font-weight:300;color:var(--muted);max-width:520px;line-height:1.6;margin-bottom:44px;opacity:0;animation:fadeUp .6s .4s forwards}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;opacity:0;animation:fadeUp .6s .55s forwards}
+.btn-primary{background:var(--lime);color:#0d0f0a;font-size:15px;font-weight:500;padding:14px 32px;border-radius:4px;text-decoration:none;transition:all .2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{background:#d4f545;transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:var(--fg);font-size:15px;font-weight:400;padding:14px 32px;border-radius:4px;border:1px solid rgba(255,255,255,0.15);text-decoration:none;transition:all .2s}
+.btn-secondary:hover{border-color:rgba(255,255,255,0.3);transform:translateY(-1px)}
+.hero-note{margin-top:20px;font-size:12px;color:var(--muted);opacity:0;animation:fadeUp .6s .7s forwards}
+
+/* stats bar */
+.stats{display:flex;justify-content:center;gap:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:rgba(200,241,53,0.03);overflow:hidden}
+.stat{flex:1;max-width:220px;padding:28px 20px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat-num{font-family:'Bebas Neue',sans-serif;font-size:42px;color:var(--lime);line-height:1}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.04em}
+
+/* how it works */
+.section{padding:100px 24px;max-width:1100px;margin:0 auto}
+.section-label{font-size:11px;font-weight:500;letter-spacing:.14em;color:var(--lime-dark);text-transform:uppercase;margin-bottom:16px}
+.section h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,7vw,80px);line-height:1;margin-bottom:60px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:var(--border)}
+.step{background:var(--bg);padding:40px 32px}
+.step-num{font-family:'Bebas Neue',sans-serif;font-size:64px;color:rgba(200,241,53,0.15);line-height:1;margin-bottom:16px}
+.step h3{font-size:18px;font-weight:500;margin-bottom:10px}
+.step p{font-size:14px;color:var(--muted);line-height:1.7}
+.step-icon{width:40px;height:40px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:18px}
+
+/* features */
+.features{padding:80px 24px;background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.features-inner{max-width:1100px;margin:0 auto}
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;background:var(--border);margin-top:60px}
+.feat{background:var(--card);padding:36px 32px}
+.feat-tag{font-size:10px;font-weight:500;letter-spacing:.12em;color:var(--lime-dark);text-transform:uppercase;margin-bottom:12px}
+.feat h3{font-size:20px;font-weight:500;margin-bottom:10px}
+.feat p{font-size:14px;color:var(--muted);line-height:1.7}
+.feat-highlight{border-left:2px solid var(--lime)}
+.feat-highlight .feat-tag{color:var(--lime)}
+
+/* social proof */
+.testimonials{padding:100px 24px;max-width:1100px;margin:0 auto}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:60px}
+.testi{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:28px}
+.testi-text{font-size:15px;color:var(--fg);line-height:1.7;margin-bottom:20px;font-weight:300}
+.testi-author{display:flex;align-items:center;gap:10px}
+.testi-avatar{width:32px;height:32px;border-radius:50%;background:var(--lime);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0d0f0a;flex-shrink:0}
+.testi-name{font-size:13px;font-weight:500}
+.testi-role{font-size:11px;color:var(--muted)}
+.stars{color:var(--lime);font-size:12px;margin-bottom:12px;letter-spacing:2px}
+
+/* CTA section */
+.cta-section{padding:120px 24px;text-align:center;position:relative;overflow:hidden}
+.cta-section::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 80% at 50% 50%,rgba(200,241,53,0.07) 0%,transparent 70%);pointer-events:none}
+.cta-section h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(56px,10vw,120px);line-height:.95;margin-bottom:32px}
+.cta-section h2 span{color:var(--lime)}
+.cta-section p{font-size:18px;font-weight:300;color:var(--muted);max-width:480px;margin:0 auto 44px;line-height:1.6}
+
+/* footer */
+footer{border-top:1px solid var(--border);padding:32px 40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.foot-logo{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.08em;color:var(--lime)}
+.foot-note{font-size:12px;color:var(--muted)}
+.foot-links{display:flex;gap:20px}
+.foot-links a{font-size:12px;color:var(--muted);text-decoration:none}
+.foot-links a:hover{color:var(--fg)}
+
+/* demo mockup */
+.demo-wrap{padding:60px 24px 0;max-width:1100px;margin:0 auto}
+.demo-frame{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.demo-bar{background:#161810;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:8px}
+.demo-dot{width:10px;height:10px;border-radius:50%}
+.demo-url{flex:1;background:rgba(255,255,255,0.04);border-radius:4px;padding:5px 12px;font-size:11px;color:var(--muted);margin:0 12px}
+.demo-screen{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);height:260px}
+.demo-panel{background:#0a0c08;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
+.demo-panel-label{position:absolute;top:10px;left:10px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
+.demo-panel-you .demo-panel-label{background:rgba(138,170,26,.2);color:#8aaa1a;border:1px solid rgba(138,170,26,.3)}
+.demo-panel-pro .demo-panel-label{background:rgba(90,159,212,.2);color:#5a9fd4;border:1px solid rgba(90,159,212,.3)}
+.skeleton-svg{opacity:.8}
+.demo-score{position:absolute;bottom:10px;right:10px;font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--lime);line-height:1}
+.demo-metrics{background:#0d0f0a;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+.demo-metric{background:#0d0f0a;padding:12px;text-align:center}
+.dm-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.dm-val{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--lime)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+/* skeleton animation */
+.skel-line{stroke-dasharray:100;stroke-dashoffset:100;animation:drawLine 1.2s ease forwards}
+@keyframes drawLine{to{stroke-dashoffset:0}}
+
+@media(max-width:768px){
+  nav{padding:14px 20px}
+  .steps,.feat-grid,.testi-grid{grid-template-columns:1fr}
+  .demo-screen{grid-template-columns:1fr;height:auto}
+  .stats{flex-wrap:wrap}
+  .stat{min-width:50%}
+  footer{flex-direction:column;text-align:center}
+  .nav-links{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">SwingCheck</div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#app">Try it</a>
+  </div>
+  <a href="app.html" class="nav-cta">Try Free →</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-court"></div>
+  <p class="eyebrow">AI Tennis Coach · Free · No Account Needed</p>
+  <h1>Your<br><span>Swing,</span><br>Analyzed.</h1>
+  <p class="hero-sub">Upload your forehand video. Compare it to any player. Get instant AI pose tracking and coaching tips — right in your browser.</p>
+  <div class="hero-actions">
+    <a href="app.html" class="btn-primary">Analyze My Swing →</a>
+    <a href="#how" class="btn-secondary">See How It Works</a>
+  </div>
+  <p class="hero-note">No sign-up · No subscription · Works on any video</p>
+</section>
+
+<!-- Demo mockup -->
+<div class="demo-wrap" id="app">
+  <div class="demo-frame">
+    <div class="demo-bar">
+      <div class="demo-dot" style="background:#ff5f57"></div>
+      <div class="demo-dot" style="background:#febc2e"></div>
+      <div class="demo-dot" style="background:#28c840"></div>
+      <div class="demo-url">swingcheck.app</div>
+    </div>
+    <div class="demo-screen">
+      <div class="demo-panel demo-panel-you">
+        <span class="demo-panel-label">You</span>
+        <svg class="skeleton-svg" width="120" height="160" viewBox="0 0 120 160">
+          <!-- skeleton figure hitting forehand -->
+          <g stroke="#8aaa1a" stroke-width="2.5" stroke-linecap="round" fill="none">
+            <circle cx="60" cy="18" r="10" fill="rgba(138,170,26,.2)" class="skel-line" style="animation-delay:.1s"/>
+            <line x1="60" y1="28" x2="60" y2="68" class="skel-line" style="animation-delay:.2s"/>
+            <line x1="60" y1="38" x2="30" y2="55" class="skel-line" style="animation-delay:.3s"/>
+            <line x1="30" y1="55" x2="12" y2="45" class="skel-line" style="animation-delay:.4s"/>
+            <line x1="60" y1="38" x2="92" y2="48" class="skel-line" style="animation-delay:.3s"/>
+            <line x1="92" y1="48" x2="108" y2="62" class="skel-line" style="animation-delay:.5s"/>
+            <line x1="60" y1="68" x2="44" y2="110" class="skel-line" style="animation-delay:.6s"/>
+            <line x1="44" y1="110" x2="38" y2="148" class="skel-line" style="animation-delay:.7s"/>
+            <line x1="60" y1="68" x2="76" y2="110" class="skel-line" style="animation-delay:.6s"/>
+            <line x1="76" y1="110" x2="82" y2="148" class="skel-line" style="animation-delay:.7s"/>
+            <circle cx="30" cy="55" r="3" fill="#8aaa1a"/>
+            <circle cx="92" cy="48" r="3" fill="#8aaa1a"/>
+            <circle cx="12" cy="45" r="3" fill="#8aaa1a"/>
+            <circle cx="108" cy="62" r="3" fill="#8aaa1a"/>
+            <circle cx="44" cy="110" r="3" fill="#8aaa1a"/>
+            <circle cx="76" cy="110" r="3" fill="#8aaa1a"/>
+          </g>
+        </svg>
+        <div class="demo-score">74%</div>
+      </div>
+      <div class="demo-panel demo-panel-pro">
+        <span class="demo-panel-label">Reference</span>
+        <svg class="skeleton-svg" width="120" height="160" viewBox="0 0 120 160">
+          <g stroke="#5a9fd4" stroke-width="2.5" stroke-linecap="round" fill="none">
+            <circle cx="58" cy="16" r="10" fill="rgba(90,159,212,.2)" class="skel-line" style="animation-delay:.15s"/>
+            <line x1="58" y1="26" x2="58" y2="66" class="skel-line" style="animation-delay:.25s"/>
+            <line x1="58" y1="36" x2="28" y2="50" class="skel-line" style="animation-delay:.35s"/>
+            <line x1="28" y1="50" x2="8" y2="36" class="skel-line" style="animation-delay:.45s"/>
+            <line x1="58" y1="36" x2="94" y2="44" class="skel-line" style="animation-delay:.35s"/>
+            <line x1="94" y1="44" x2="114" y2="54" class="skel-line" style="animation-delay:.55s"/>
+            <line x1="58" y1="66" x2="42" y2="108" class="skel-line" style="animation-delay:.65s"/>
+            <line x1="42" y1="108" x2="34" y2="148" class="skel-line" style="animation-delay:.75s"/>
+            <line x1="58" y1="66" x2="74" y2="108" class="skel-line" style="animation-delay:.65s"/>
+            <line x1="74" y1="108" x2="80" y2="148" class="skel-line" style="animation-delay:.75s"/>
+            <circle cx="28" cy="50" r="3" fill="#5a9fd4"/>
+            <circle cx="94" cy="44" r="3" fill="#5a9fd4"/>
+            <circle cx="8" cy="36" r="3" fill="#5a9fd4"/>
+            <circle cx="114" cy="54" r="3" fill="#5a9fd4"/>
+            <circle cx="42" cy="108" r="3" fill="#5a9fd4"/>
+            <circle cx="74" cy="108" r="3" fill="#5a9fd4"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="demo-metrics">
+      <div class="demo-metric"><div class="dm-label">Elbow</div><div class="dm-val">142°</div></div>
+      <div class="demo-metric"><div class="dm-label">Shoulder</div><div class="dm-val">88°</div></div>
+      <div class="demo-metric"><div class="dm-label">Hip</div><div class="dm-val">71°</div></div>
+      <div class="demo-metric"><div class="dm-label">Knee</div><div class="dm-val">158°</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats" style="max-width:1100px;margin:60px auto 0;border-radius:8px;overflow:hidden;border:1px solid var(--border)">
+  <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Free, forever</div></div>
+  <div class="stat"><div class="stat-num">0</div><div class="stat-label">Data uploaded to servers</div></div>
+  <div class="stat"><div class="stat-num">4</div><div class="stat-label">Joint angles tracked live</div></div>
+  <div class="stat"><div class="stat-num">5s</div><div class="stat-label">To your first analysis</div></div>
+</div>
+
+<!-- How it works -->
+<section class="section" id="how">
+  <p class="section-label">How it works</p>
+  <h2>Three steps<br>to better tennis.</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-icon">📹</div>
+      <h3>Upload your video</h3>
+      <p>Film yourself hitting a forehand — even a phone video works. Upload it directly in your browser. Nothing leaves your device.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-icon">🎾</div>
+      <h3>Pick a reference</h3>
+      <p>Upload any player's forehand as a reference — a pro, your coach, or a friend with great technique. Download from YouTube easily.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-icon">📊</div>
+      <h3>Get your analysis</h3>
+      <p>AI maps a skeleton onto both videos in real time. See your joint angles, similarity score, and coaching tips instantly.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features" id="features">
+  <div class="features-inner">
+    <p class="section-label">Features</p>
+    <h2>Everything you need<br>to improve faster.</h2>
+    <div class="feat-grid">
+      <div class="feat feat-highlight">
+        <div class="feat-tag">AI Pose Tracking</div>
+        <h3>Live skeleton overlay</h3>
+        <p>MediaPipe AI draws a skeleton on your video in real time — right in your browser, no server, no upload. See exactly where your body is at every frame.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-tag">Frame Scrubber</div>
+        <h3>Frame-by-frame comparison</h3>
+        <p>Scrub through both videos independently or in sync. Step one frame at a time to compare your contact point to a pro's at the exact same moment.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-tag">Slow Motion</div>
+        <h3>0.1× to 2× playback speed</h3>
+        <p>Slow both videos down to 10% speed to spot the small details that make a big difference — wrist snap, shoulder rotation, hip drive.</p>
+      </div>
+      <div class="feat feat-highlight">
+        <div class="feat-tag">Coaching Tips</div>
+        <h3>Instant personalized feedback</h3>
+        <p>After analysis, SwingCheck gives you the top 3 things to work on based on the actual difference between your angles and your reference player's.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="testimonials">
+  <p class="section-label">What players say</p>
+  <h2>Real players,<br>real results.</h2>
+  <div class="testi-grid">
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p class="testi-text">"I've been playing for 3 years and never understood why my forehand felt weak. SwingCheck showed me my elbow angle was 30° off from Federer's. Fixed it in a week."</p>
+      <div class="testi-author">
+        <div class="testi-avatar">MR</div>
+        <div><div class="testi-name">Marcus R.</div><div class="testi-role">Club player · 3.5 NTRP</div></div>
+      </div>
+    </div>
+    <div class="testi">
+      <p class="testi-text">"The slow motion side-by-side is insane. I recorded my daughter and Alcaraz doing the same shot and the skeleton comparison made it so obvious what she needed to change."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background:var(--blue);color:#0d0f0a">SK</div>
+        <div><div class="testi-name">Sarah K.</div><div class="testi-role">Tennis mom · Junior coach</div></div>
+      </div>
+    </div>
+    <div class="testi">
+      <div class="stars">★★★★★</div>
+      <p class="testi-text">"I use this before every lesson to show students what to work on. It's free, it works offline, and the AI is surprisingly accurate. My students love seeing the skeleton."</p>
+      <div class="testi-author">
+        <div class="testi-avatar" style="background:#c98a18;color:#0d0f0a">JP</div>
+        <div><div class="testi-name">James P.</div><div class="testi-role">Tennis coach · 15 years</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Ready to<br><span>check your</span><br>swing?</h2>
+  <p>Free forever. No account. No subscription. Just upload your video and go.</p>
+  <a href="app.html" class="btn-primary" style="font-size:17px;padding:16px 40px">Analyze My Swing — It's Free →</a>
+</section>
+
+<footer>
+  <div class="foot-logo">SwingCheck</div>
+  <div class="foot-note">Built with AI · No data ever leaves your device · Free forever</div>
+  <div class="foot-links">
+    <a href="app.html">App</a>
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+  </div>
+</footer>
+
+</body>
+</html>
