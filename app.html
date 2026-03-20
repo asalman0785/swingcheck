@@ -383,7 +383,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
     <!-- Live angles -->
     <div class="live-angles">
       <div class="la-card">
-        <div class="la-title" style="color:var(--lime)">Your live angles</div>
+        <div class="la-title" style="color:var(--lime)">Your live angles <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(current frame)</span></div>
         <div class="la-grid" id="liveYou">
           <div class="la-item"><span class="la-label" id="lly0-label">Elbow</span><span class="la-val" id="lly0" style="color:var(--lime)">—</span></div>
           <div class="la-item"><span class="la-label" id="lly1-label">Shoulder</span><span class="la-val" id="lly1" style="color:var(--lime)">—</span></div>
@@ -392,7 +392,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
         </div>
       </div>
       <div class="la-card">
-        <div class="la-title" style="color:var(--blue)">Reference live angles</div>
+        <div class="la-title" style="color:var(--blue)">Reference live angles <span style="font-size:9px;color:var(--muted);text-transform:none;letter-spacing:0">(current frame)</span></div>
         <div class="la-grid" id="livePro">
           <div class="la-item"><span class="la-label" id="llp0-label">Elbow</span><span class="la-val" id="llp0" style="color:var(--blue)">—</span></div>
           <div class="la-item"><span class="la-label" id="llp1-label">Shoulder</span><span class="la-val" id="llp1" style="color:var(--blue)">—</span></div>
@@ -404,7 +404,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:14px 2
 
     <!-- Phase selector -->
     <div class="phasebar">
-      <div class="phaselabel">Phase averages</div>
+      <div class="phaselabel">Phase averages <span style="font-size:10px;color:var(--hint);text-transform:none;letter-spacing:0;font-weight:400">— stable values from analysis</span></div>
       <div class="phases" id="phaseButtons"></div>
     </div>
 
@@ -500,18 +500,19 @@ const SHOTS = {
   serve: {
     label: 'Serve',
     emoji: '🏆',
-    metrics: ['Trophy pos.','Toss arm','Shoulder rot.','Leg drive'],
+    metrics: ['Toss arm elevation','Knee bend','Contact height'],
     phases: ['Ready pos.','Trophy','Ball toss','Contact','Follow-through'],
     phaseKeys: ['ready','trophy','toss','contact','follow'],
-    phaseMults: {ready:[.40,.45,.35,.90],trophy:[.75,.80,.65,.70],toss:[.85,.90,.80,.80],contact:[1.0,1.0,1.0,.60],follow:[.80,.75,.85,.50]},
-    maxA: [150,160,130,180],
+    // 3 metrics only — toss arm elevation (left wrist y vs shoulder y), knee bend angle, contact height (wrist y vs head y)
+    phaseMults: {ready:[.45,.90,.30],trophy:[.70,.65,.60],toss:[.90,.80,.85],contact:[1.0,.55,1.0],follow:[.60,.45,.70]},
+    maxA: [180,180,180],
+    serveMode: true,
     tips: [
-      {name:'Trophy position', tip: d=>d>0?'Get your racket arm higher in the trophy position — this loads power.':'Good trophy position. Focus on explosive upward swing from here.'},
-      {name:'Toss arm', tip: d=>d>0?'Keep your toss arm up longer — dropping it early kills your serve.':'Great toss arm extension. Make sure your toss is consistent.'},
-      {name:'Shoulder rotation', tip: d=>d>0?'Open your shoulders more aggressively into the serve for pace.':'Strong shoulder rotation through the serve.'},
-      {name:'Leg drive', tip: d=>d>0?'Push up off your legs more — leg drive is 30% of serve power.':'Strong leg drive. Time it to explode into contact.'}
+      {name:'Toss arm elevation', tip: d=>d>0?'Keep your toss arm reaching higher and longer — dropping it early causes inconsistent tosses.':'Great toss arm height. Keep that extension through the release.'},
+      {name:'Knee bend', tip: d=>d>0?'Bend your knees more in the trophy position to load power for the upward drive.':'Good knee bend. Make sure you\'re exploding upward into contact.'},
+      {name:'Contact height', tip: d=>d>0?'Make contact higher — hit the ball at the peak of the toss, not on the way down.':'Good contact height. You\'re catching the ball near its peak.'}
     ],
-    breakdown: ['Trophy position','Toss consistency','Shoulder rotation','Leg power']
+    breakdown: ['Toss arm','Leg loading','Contact timing']
   },
   volley: {
     label: 'Volley',
@@ -587,6 +588,10 @@ function buildPhaseButtons(){
 
 function buildMetricCards(){
   const s=SHOTS[currentShot];
+  const isServe=s.serveMode;
+  const units=isServe?['°','°','°']:['°','°','°','°'];
+  const cols=isServe?'repeat(3,1fr)':'repeat(4,1fr)';
+  document.getElementById('metricCards').style.gridTemplateColumns=cols;
   document.getElementById('metricCards').innerHTML=s.metrics.map((m,i)=>`
     <div class="mcard">
       <div class="mname">${m}</div>
@@ -611,6 +616,13 @@ function buildScoreBreakdown(){
 
 function updateLiveLabels(){
   const s=SHOTS[currentShot];
+  const isServe=s.serveMode;
+  // show/hide 4th slot depending on shot
+  const slot3y=document.getElementById('lly3')?.closest('.la-item');
+  const slot3p=document.getElementById('llp3')?.closest('.la-item');
+  if(slot3y) slot3y.style.display=isServe?'none':'flex';
+  if(slot3p) slot3p.style.display=isServe?'none':'flex';
+  // update labels for visible slots
   s.metrics.forEach((m,i)=>{
     const el1=document.getElementById('lly'+i+'-label');
     const el2=document.getElementById('llp'+i+'-label');
@@ -711,8 +723,10 @@ async function initPose(who,color){
       }
       const a=extractAngles(results.poseLandmarks);
       liveAngles[who]=a;
+      // Only update the live angle readout cards — never touch the metric cards from here
       const pfx=who==='you'?'lly':'llp';
       a.forEach((v,i)=>{ const el=document.getElementById(pfx+i); if(el) el.textContent=v>0?v+'°':'—'; });
+      // Do NOT call updateMetrics() from here — metric cards are frozen to analysis averages
     });
     badge.textContent='Tracking';badge.className='pose-badge tracking';
     poseWorkers[who]=pose;
@@ -731,11 +745,36 @@ function angle3(a,b,c){
 
 function extractAngles(lm){
   if(!lm||lm.length<33) return [0,0,0,0];
+  if(currentShot==='serve') return extractServeAngles(lm);
   const elbow=angle3(lm[12],lm[14],lm[16]);
   const shoulder=Math.round(Math.abs(Math.atan2(lm[11].y-lm[12].y,lm[11].x-lm[12].x)*180/Math.PI));
   const hip=Math.round(Math.abs(Math.atan2(lm[23].y-lm[24].y,lm[23].x-lm[24].x)*180/Math.PI));
   const knee=angle3(lm[24],lm[26],lm[28]);
   return [elbow,shoulder,hip,knee];
+}
+
+function extractServeAngles(lm){
+  // 1. Toss arm elevation: angle of left arm (lm[11]=L shoulder, lm[13]=L elbow, lm[15]=L wrist)
+  //    Measure how high the left wrist is relative to the left shoulder (0=shoulder level, 180=straight up)
+  //    Use angle between left shoulder→left elbow→left wrist, then factor in wrist height
+  const tossArmAngle = angle3(lm[11], lm[13], lm[15]); // left arm straightness (180 = fully extended)
+  // Also check wrist height: negative y = higher on screen (MediaPipe y goes 0=top, 1=bottom)
+  const wristAboveShoulder = lm[11].y - lm[15].y; // positive = wrist is higher than shoulder
+  // Combine: straight arm + raised = high score. Scale to 0–180
+  const tossElevation = Math.round(Math.min(180, tossArmAngle * (0.6 + Math.max(0, wristAboveShoulder) * 1.2)));
+
+  // 2. Knee bend: right knee angle (lm[24]=R hip, lm[26]=R knee, lm[28]=R ankle)
+  //    180 = straight leg, 90 = deep bend
+  const kneeBend = angle3(lm[24], lm[26], lm[28]);
+
+  // 3. Contact height: how high the racket-arm wrist (lm[16]=R wrist) is vs the head (lm[0]=nose)
+  //    Higher wrist above nose = better contact point. Scale to 0–180
+  const noseY = lm[0].y;
+  const wristY = lm[16].y; // right wrist
+  const heightDiff = noseY - wristY; // positive = wrist above nose
+  const contactHeight = Math.round(Math.min(180, Math.max(0, 90 + heightDiff * 200)));
+
+  return [tossElevation, kneeBend, contactHeight];
 }
 
 // ══ RENDER LOOP ═════════════════════════════════════════════════════════════
@@ -835,20 +874,26 @@ async function runAnalysis(){
 
   async function collectAngles(who,pose){
     const vid=document.getElementById('vid-'+who);
-    if(!pose||!vid.src) return seedAngles(vid.duration||3.5);
-    const accum=[0,0,0,0];let frames=0;
+    const s=SHOTS[currentShot];
+    const n=s.metrics.length;
+    if(!pose||!vid.src) return seedAngles(vid.duration||3.5,n);
+    const accum=new Array(n).fill(0);let frames=0;
     const dur=Math.min(vid.duration||5,5),step=dur/20;
     for(let t=0;t<dur;t+=step){
       vid.currentTime=t;
       await new Promise(r=>setTimeout(r,80));
-      if(liveAngles[who].some(v=>v>0)){ liveAngles[who].forEach((v,i)=>accum[i]+=v); frames++; }
+      const la=liveAngles[who].slice(0,n);
+      if(la.some(v=>v>0)){ la.forEach((v,i)=>accum[i]+=v); frames++; }
     }
     vid.currentTime=0;
-    if(frames===0) return seedAngles(vid.duration||3.5);
+    if(frames===0) return seedAngles(vid.duration||3.5,n);
     return accum.map(v=>Math.round(v/frames));
   }
 
-  function seedAngles(s){ return[Math.round(100+(s*17.3)%60),Math.round(50+(s*11.7)%55),Math.round(40+(s*9.1)%45),Math.round(130+(s*7.3)%40)]; }
+  function seedAngles(s,n=4){
+    const base=[Math.round(100+(s*17.3)%60),Math.round(50+(s*11.7)%55),Math.round(40+(s*9.1)%45),Math.round(130+(s*7.3)%40)];
+    return base.slice(0,n);
+  }
 
   const [yBase,pBase]=await Promise.all([collectAngles('you',pY),collectAngles('pro',pP)]);
   const s=SHOTS[currentShot];
